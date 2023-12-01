@@ -126,7 +126,7 @@ struct TypeInfo<std::vector<T>>
 {
     static nlohmann::json type_info()
     {
-        return nlohmann::json::array({TypeInfo<T>::type_info()});
+        return nlohmann::json{{"array", TypeInfo<T>::type_info()}};
     }
 };
 
