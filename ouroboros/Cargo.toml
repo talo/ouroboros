@@ -1,0 +1,8 @@
+[package]
+name = "ouroboros"
+edition = "2021"
+version.workspace = true
+
+[dependencies]
+lazy_static = { version = "1.4.0" }
+ouroboros-derive = { path = "../ouroboros-derive" }
