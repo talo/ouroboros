@@ -214,25 +214,26 @@ namespace ouroboros
 
         // If multiple input arguments are passed, then it is required that the
         // input type is a tuple.
-        if (argc > 3 && !in_type_info.at("k").is_null() && in_type_info.at("k") == "tuple")
+        if (argc > 3)
         {
-            // Combine all of the arguments into one JSON array.
-            std::string args = "[";
-            for (int i = 1; i < argc - 1; i++) // -1 because the last argument is the output
+            if (!in_type_info.at("k").is_null() && in_type_info.at("k") == "tuple")
             {
-                if (i > 1)
+                // Combine all of the arguments into one JSON array.
+                std::string args = "[";
+                for (int i = 1; i < argc - 1; i++) // -1 because the last argument is the output
                 {
-                    args += ",";
+                    if (i > 1)
+                    {
+                        args += ",";
+                    }
+                    args += std::string(argv[i]);
                 }
-                args += std::string(argv[i]);
-            }
-            args += "]";
+                args += "]";
 
-            // Parse it as a tuple.
-            return std::make_tuple<I, Mutable<O>>(nlohmann::json::parse(args), nlohmann::json::parse(argv[argc - 1]));
-        }
-        else
-        {
+                // Parse it as a tuple.
+                return std::make_tuple<I, Mutable<O>>(nlohmann::json::parse(args), nlohmann::json::parse(argv[argc - 1]));
+            }
+
             // If the input type is not a tuple, then throw an error.
             std::cerr << "error: too many arguments" << std::endl;
             exit(1);
