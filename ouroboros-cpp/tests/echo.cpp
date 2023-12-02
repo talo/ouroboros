@@ -4,7 +4,9 @@
 
 int main(const int argc, const char **argv)
 {
-    auto io = ouroboros::init<std::string, std::string>(argc, argv);
+    auto [in, out] = ouroboros::init<std::string, std::string>(argc, argv);
+
+    out << in;
 
     return 0;
 }
