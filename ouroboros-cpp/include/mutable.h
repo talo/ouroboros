@@ -30,13 +30,21 @@ namespace ouroboros
             this->m_fd = fd;
         }
 
-        T set(const T &t)
+        // Override `<<` operator to call `assign`
+        Mutable<T> operator<<(const T &t)
+        {
+            return this->assign(t);
+        }
+
+        // Assign a value to the mutable, which will cause it to write the value
+        // to its underlying file descriptor.
+        Mutable<T> assign(const T &t)
         {
             // Open the file descriptor
-            std::fstream f(this->fd, std::ios::in | std::ios::out | std::ios::trunc);
+            std::fstream f(this->m_fd, std::ios::in | std::ios::out | std::ios::trunc);
             if (!f.is_open())
             {
-                throw std::runtime_error("error opening Mutable file: " + this->fd);
+                throw std::runtime_error("error opening Mutable file: " + this->m_fd);
             }
 
             // Use nlohmann/json to serialize
@@ -47,7 +55,13 @@ namespace ouroboros
             f.flush();
             f.close();
 
-            return t;
+            return *this;
+        }
+
+        friend void from_json(const nlohmann::json &j, Mutable<T> &mut)
+        {
+            std::string fd = j;
+            mut = Mutable<T>(fd);
         }
     };
 }

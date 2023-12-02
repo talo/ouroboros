@@ -69,18 +69,16 @@ namespace ouroboros
 
             return t;
         }
+
+        friend void to_json(nlohmann::json &j, const Object<T> &obj)
+        {
+            j = nlohmann::json{{"filename", obj.getFilename()}};
+        }
+
+        friend void from_json(const nlohmann::json &j, Object<T> &obj)
+        {
+            std::string filename = j.at("filename").get<std::string>();
+            obj = Object<T>(filename);
+        }
     };
-}
-
-template <typename T>
-void to_json(nlohmann::json &j, const ouroboros::Object<T> &obj)
-{
-    j = nlohmann::json{{"filename", obj.getFilename()}};
-}
-
-template <typename T>
-void from_json(const nlohmann::json &j, ouroboros::Object<T> &obj)
-{
-    std::string filename = j.at("filename").get<std::string>();
-    obj = Object<T>(filename);
 }
