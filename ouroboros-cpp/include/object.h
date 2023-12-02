@@ -5,6 +5,7 @@
 #include <system_error> // for std::error_code
 #include <iostream>
 
+#include "type_info.h"
 #include "json.h"
 #include "uuid.h"
 
@@ -30,13 +31,29 @@ namespace ouroboros
             this->m_fd = fd;
         }
 
-        T set(const T &t)
+        // Override `<<` operator to call `assign`
+        Object<T> operator<<(const T &t)
+        {
+            return this->assign(t);
+        }
+
+        // Override `>>` operator to call `get`
+        Object<T> operator>>(T &t)
+        {
+            auto v = this->get();
+            t = v;
+            return *this;
+        }
+
+        // Assign a value to the object, which will cause it to write the value
+        // to its underlying file descriptor.
+        Object<T> assign(const T &t)
         {
             // Open the file descriptor
-            std::fstream f(this->fd, std::ios::in | std::ios::out | std::ios::trunc);
+            std::fstream f(this->m_fd, std::ios::in | std::ios::out | std::ios::trunc);
             if (!f.is_open())
             {
-                throw std::runtime_error("error opening object file: " + this->fd);
+                throw std::runtime_error("error opening object file: " + this->m_fd);
             }
 
             // Use nlohmann/json to serialize
@@ -47,16 +64,16 @@ namespace ouroboros
             f.flush();
             f.close();
 
-            return t;
+            return *this;
         }
 
         T get()
         {
             // Open the file descriptor
-            std::fstream f(this->fd, std::ios::in);
+            std::fstream f(this->m_fd, std::ios::in);
             if (!f.is_open())
             {
-                throw std::runtime_error("error opening object file: " + this->fd);
+                throw std::runtime_error("error opening object file: " + this->m_fd);
             }
 
             // Use nlohmann/json to deserialize
@@ -72,13 +89,23 @@ namespace ouroboros
 
         friend void to_json(nlohmann::json &j, const Object<T> &obj)
         {
-            j = nlohmann::json{{"filename", obj.getFilename()}};
+            j = obj.m_fd;
         }
 
         friend void from_json(const nlohmann::json &j, Object<T> &obj)
         {
-            std::string filename = j.at("filename").get<std::string>();
-            obj = Object<T>(filename);
+            std::string fd = j;
+            obj = Object<T>(fd);
+        }
+    };
+
+    template <typename T>
+    struct TypeInfo<Object<T>>
+    {
+        static nlohmann::json type_info()
+        {
+            return nlohmann::json{
+                {"k", "record"}, {"value", "string"}};
         }
     };
 }

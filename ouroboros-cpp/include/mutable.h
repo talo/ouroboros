@@ -31,14 +31,14 @@ namespace ouroboros
         }
 
         // Override `<<` operator to call `assign`
-        Mutable<T> operator<<(const T &t)
+        T operator<<(const T &t)
         {
             return this->assign(t);
         }
 
         // Assign a value to the mutable, which will cause it to write the value
         // to its underlying file descriptor.
-        Mutable<T> assign(const T &t)
+        T assign(const T &t)
         {
             // Open the file descriptor
             std::fstream f(this->m_fd, std::ios::in | std::ios::out | std::ios::trunc);
@@ -55,7 +55,7 @@ namespace ouroboros
             f.flush();
             f.close();
 
-            return *this;
+            return t;
         }
 
         friend void from_json(const nlohmann::json &j, Mutable<T> &mut)
