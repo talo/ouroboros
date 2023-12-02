@@ -172,26 +172,12 @@ namespace ouroboros
             return nlohmann::json{{"k", "array"}, {"t", TypeInfo<T>::type_info()}};
         }
     };
-    struct Manifest
-    {
-        std::string name;
-        nlohmann::json ins;
-        nlohmann::json outs;
-        // // ResourceBounds resource_bounds;
-        std::optional<std::string> description;
-        std::optional<std::string> usage;
-        std::optional<std::vector<std::tuple<std::string, std::string>>> ins_usage;
-        std::optional<std::vector<std::tuple<std::string, std::string>>> outs_usage;
-        // // Supported tengu-runtime version
-        // std::optional<VersionReq> runtime_version;
-        // std::optional<ManifestVersion> manifest_version;
-    };
 
     template <typename I, typename O>
     std::tuple<I, Mutable<O>> init(const int argc, const char **argv)
     {
         // Check if there are enough arguments for the module to be valid
-        if (argc < 3)
+        if (argc < 2)
         {
             std::cerr << "error: too few arguments" << std::endl;
             exit(1);
@@ -204,10 +190,16 @@ namespace ouroboros
                 {"name", std::string(argv[0])},
                 {"ins", TypeInfo<I>::type_info()},
                 {"outs", TypeInfo<O>::type_info()},
-                {"description", "Echoes the input to the output"},
             };
             std::cout << m << std::endl;
             exit(0);
+        }
+
+        // Check if there are enough arguments for the module to be valid
+        if (argc < 3)
+        {
+            std::cerr << "error: too few arguments" << std::endl;
+            exit(1);
         }
 
         auto in_type_info = TypeInfo<I>::type_info();

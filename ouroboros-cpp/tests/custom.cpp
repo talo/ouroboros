@@ -8,6 +8,25 @@ OUROBOROS_STRUCT(Point,
                  float, y,
                  float, z);
 
+/**
+ * Build this program:
+ *
+ * ```
+ * clang++ -std=c++17 -o ./tests/custom ./tests/custom.cpp
+ * ```
+ *
+ * See the expected ins/outs of the program:
+ *
+ * ```
+ * ./tests/custom --introspect
+ * ```
+ *
+ * Run the program:
+ *
+ * ```
+ * ./tests/custom '{"x": 1.0, "y": 2.0, "z": 3.0}' '{"x": 4.0, "y": 5.0, "z": 6.0}' '"out"'
+ * ```
+ */
 int main(const int argc, const char **argv)
 {
     auto [in, out] = ouroboros::init<std::tuple<Point, Point>, float>(argc, argv);
