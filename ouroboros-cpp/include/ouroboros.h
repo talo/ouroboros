@@ -169,7 +169,7 @@ namespace ouroboros
     {
         static nlohmann::json type_info()
         {
-            return nlohmann::json::array({TypeInfo<T>::type_info()});
+            return nlohmann::json::json{{"k", "array"}, {"t", TypeInfo<T>::type_info()}};
         }
     };
     struct Manifest
