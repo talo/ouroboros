@@ -1,8 +1,10 @@
 import json
 import sys
-from typing import Tuple, TypeVar, Type
+from typing import TypeVar, Type
+import typing
 
 from mutable import Mutable
+from object import Object
 from type_info import ouroboros, type_info
 
 @ouroboros
@@ -21,7 +23,7 @@ class Foo:
 I = TypeVar('I')
 O = TypeVar('O')
     
-def init(input_type: Type[I], output_type: Type[O]) -> Tuple[I, Mutable[O]]:
+def init(input: type[I], output: type[O]) -> tuple[I, Mutable[O]]:
     if len(sys.argv) < 2:
         sys.stderr.write('error: too few arguments\n')
         sys.exit(1)
@@ -29,8 +31,8 @@ def init(input_type: Type[I], output_type: Type[O]) -> Tuple[I, Mutable[O]]:
     if sys.argv[1] == '--introspect':
         data = {
             'name': sys.argv[0],
-            'ins': type_info(input_type),
-            'outs': type_info(output_type),
+            'ins': type_info(input),
+            'outs': type_info(output),
         }
         json.dump(data, sys.stdout, indent=4)
         sys.exit(0)
@@ -38,14 +40,20 @@ def init(input_type: Type[I], output_type: Type[O]) -> Tuple[I, Mutable[O]]:
     if len(sys.argv) < 3:
         sys.stderr.write('error: too few arguments, missing inputs and output\n')
         sys.exit(1)
-    
-    pass
+
+    return input(json.loads(sys.argv[1])), Mutable(json.loads(sys.argv[2]))
+
+def __test_echo__():
+    input, output = init(str, str)
+    output << input
+
+def __test_echo_object__():
+    input, output = init(Object[str], str)
+    output << input.get()
+
+def __test_sum__():
+    input, output = init(list[int], int)
+    output << sum(input)
 
 if __name__ == "__main__":
-    # init(list[int], int)
-    # init(tuple[bool], int)
-    # init(tuple[bool, int], int)
-    # init(tuple[bool, int, float], int)
-    # init(tuple[bool, int, float, str], int)
-    # init(tuple[bool, int, float, str, tuple[bool]], int)
-    init(Foo, int)
+    __test_echo_object__()

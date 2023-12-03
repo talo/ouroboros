@@ -38,7 +38,7 @@ def ouroboros(cls):
             info["t"][attr] = __type_info__(typ)
         return info
 
-    setattr(cls, 'type_info', staticmethod(type_info))
+    setattr(cls, 'type_info', classmethod(type_info))
     return cls
 
 def type_info(t):
