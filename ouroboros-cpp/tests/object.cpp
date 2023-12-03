@@ -24,11 +24,10 @@ OUROBOROS_STRUCT(Point,
  * Run the program:
  *
  * ```
+ * echo '{"x": 1.0, "y": 2.0, "z": 3.0}' > p1
+ * echo '{"x": 4.0, "y": 5.0, "z": 6.0}' > p2
  * ./tests/object '"p1"' '"p2"' '"out"'
  * ```
- *
- * where `"p1"` and `"p2"` are JSON files that contain `{"x": 1.0, "y": 2.0,
- * "z": 3.0}` and `{"x": 4.0, "y": 5.0, "z": 6.0}` respectively.
  */
 int main(const int argc, const char **argv)
 {

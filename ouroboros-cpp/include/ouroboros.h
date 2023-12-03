@@ -39,7 +39,7 @@ namespace ouroboros
         // Check if there are enough arguments for the module to be valid
         if (argc < 3)
         {
-            std::cerr << "error: too few arguments" << std::endl;
+            std::cerr << "error: too few arguments, missing inputs and output" << std::endl;
             exit(1);
         }
 
