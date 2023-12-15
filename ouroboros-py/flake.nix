@@ -19,11 +19,12 @@
           ];
         };
         pythonEnv = pkgs.python3.withPackages (ps: with ps; [
-            # Add Python dependencies here:
-            # ```
-            # numpy
-            # pandas
-            # ```
+          invoke
+          # Add Python dependencies here:
+          # ```
+          # numpy
+          # pandas
+          # ```
         ]);
       in
       {

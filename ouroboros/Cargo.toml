@@ -5,4 +5,4 @@ version.workspace = true
 
 [dependencies]
 lazy_static = { version = "1.4.0" }
-ouroboros-derive = { path = "../ouroboros-derive" }
+ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }

@@ -13,11 +13,11 @@ name = "ouroboros"
 version = "0.1.0"
 dependencies = [
  "lazy_static",
- "ouroboros-derive",
+ "ouroboros-proc-macro",
 ]
 
 [[package]]
-name = "ouroboros-derive"
+name = "ouroboros-proc-macro"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

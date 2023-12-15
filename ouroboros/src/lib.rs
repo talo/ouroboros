@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub use ouroboros_derive::*;
+pub use ouroboros_proc_macro::*;
 
 lazy_static::lazy_static! {
     static ref CPP_TYPE_NAMES: Arc<Mutex<HashSet<String>>> = {
@@ -42,6 +42,13 @@ where
 {
     PYTHON_TYPE_NAMES.lock().unwrap().contains(name)
 }
+
+pub mod field;
+pub mod product;
+pub mod sum;
+pub mod symbolic;
+pub mod transpile;
+pub mod type_info;
 
 pub trait Ouroboros {
     fn python() -> String;
@@ -206,7 +213,7 @@ where
     T: Ouroboros,
 {
     fn python() -> String {
-        format!("{} | None", T::python())
+        format!("Optional[{}]", T::python())
     }
 
     fn cpp() -> String {
