@@ -1,7 +1,9 @@
 [workspace]
 members = [
-    "ouroboros-proc-macro",
     "ouroboros",
+    "ouroboros-proc-macro",
+    "ouroboros-vm",
+    "ouroboros-vm-stdlib",
 ]
 
 [workspace.package]

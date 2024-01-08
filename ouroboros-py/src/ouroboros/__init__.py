@@ -35,6 +35,7 @@ def init(input: type[I], output: type[O]) -> tuple[I, Mutable[O]]:
             'outs': type_info(output),
         }
         json.dump(data, sys.stdout, indent=4)
+        print("")
         sys.exit(0)
 
     if len(sys.argv) < 3:
@@ -48,12 +49,16 @@ def __test_echo__():
     output << input
 
 def __test_echo_object__():
-    input, output = init(Object[str], str)
+    input, output = init(list[Object[str]], str)
     output << input.get()
 
 def __test_sum__():
     input, output = init(list[int], int)
     output << sum(input)
 
+def __test_tuple__():
+    input, output = init(tuple[list[int], int, Object[tuple[int, int]]], int)
+    output << sum(input)
+
 if __name__ == "__main__":
-    __test_echo_object__()
+    __test_tuple__()

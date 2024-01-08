@@ -439,8 +439,10 @@ impl TypedefVisitor {
             s.push_str(prefix);
             s.push_str("    ");
             s.push_str(&variant.n);
-            s.push_str(" = ");
-            s.push_str(&variant.v.to_string());
+            if let Some(v) = &variant.v {
+                s.push_str(" = ");
+                s.push_str(&v.to_string());
+            }
             if i != e.variants.len() - 1 {
                 s.push_str("\n");
             }
@@ -476,7 +478,7 @@ impl TypedefVisitor {
                     .variants
                     .iter()
                     .enumerate()
-                    .map(|(i, variant)| EnumVariant::new(variant.n.clone(), i as u8))
+                    .map(|(i, variant)| EnumVariant::with_const_value(variant.n.clone(), i as u8))
                     .collect::<Vec<_>>(),
             ),
             &format!("{}    ", prefix),
@@ -604,7 +606,10 @@ class Foo:
     fn simple_enum() {
         let t = Enum::new(
             "Foo",
-            [EnumVariant::new("Bar", 0), EnumVariant::new("Baz", 1)],
+            [
+                EnumVariant::with_const_value("Bar", 0),
+                EnumVariant::with_const_value("Baz", 1),
+            ],
         );
 
         assert_eq!(

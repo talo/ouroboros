@@ -39,6 +39,14 @@ impl TypenameVisitor {
         }
     }
 
+    pub fn visit_unit() -> String {
+        Self::visit_unit_with_prefix("")
+    }
+
+    pub fn visit_unit_with_prefix(prefix: &str) -> String {
+        format!("{}std::monostate", prefix)
+    }
+
     pub fn visit_bool() -> String {
         Self::visit_bool_with_prefix("")
     }
@@ -435,8 +443,10 @@ impl TypedefVisitor {
             s.push_str(prefix);
             s.push_str("    ");
             s.push_str(&variant.n);
-            s.push_str(" = ");
-            s.push_str(&variant.v.to_string());
+            if let Some(v) = &variant.v {
+                s.push_str(" = ");
+                s.push_str(&v.to_string());
+            }
             s.push_str(",\n");
         }
         s.push_str(prefix);
@@ -541,7 +551,7 @@ impl TypedefVisitor {
 #[cfg(test)]
 mod test {
     use crate::{
-        field::{NamedField, UnnamedField},
+        field::UnnamedField,
         product::{Array, Record, Tuple},
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
@@ -559,13 +569,7 @@ mod test {
 
     #[test]
     fn simple_record() {
-        let t = Record::new(
-            "Foo",
-            [
-                NamedField::new("bar", Type::U8),
-                NamedField::new("baz", Type::U8),
-            ],
-        );
+        let t = Record::new("Foo", [("bar", Type::U8), ("baz", Type::U8)]);
 
         assert_eq!(
             TypedefVisitor::visit_record(&t),
@@ -575,10 +579,7 @@ mod test {
 };"#
         );
 
-        let t = Record::new(
-            "Foo",
-            [UnnamedField::new(Type::U8), UnnamedField::new(Type::U8)],
-        );
+        let t = Record::new("Foo", [Type::U8, Type::U8]);
 
         assert_eq!(
             TypedefVisitor::visit_record(&t),
@@ -600,7 +601,10 @@ mod test {
     fn simple_enum() {
         let t = Enum::new(
             "Foo",
-            [EnumVariant::new("Bar", 0), EnumVariant::new("Baz", 1)],
+            [
+                EnumVariant::with_const_value("Bar", 0),
+                EnumVariant::with_const_value("Baz", 1),
+            ],
         );
 
         assert_eq!(
@@ -627,17 +631,8 @@ mod test {
         let t = Union::new(
             "Foo",
             [
-                UnionVariant::with_fields(
-                    "X",
-                    [UnnamedField::new(Type::U8), UnnamedField::new(Type::U8)],
-                ),
-                UnionVariant::with_fields(
-                    "Y",
-                    [
-                        NamedField::new("bar", Type::U8),
-                        NamedField::new("baz", Type::U8),
-                    ],
-                ),
+                UnionVariant::with_fields("X", [Type::U8, Type::U8]),
+                UnionVariant::with_fields("Y", [("bar", Type::U8), ("baz", Type::U8)]),
                 UnionVariant::new("Z"),
             ],
         );

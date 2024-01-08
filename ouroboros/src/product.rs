@@ -3,7 +3,7 @@ use crate::{
     type_info::Type,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Array {
     pub t: Box<Type>,
 }
@@ -16,8 +16,9 @@ impl Array {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Record {
+    pub doc: Option<String>,
     pub n: String,
     pub fields: Fields,
 }
@@ -25,13 +26,14 @@ pub struct Record {
 impl Record {
     pub fn new(n: impl Into<String>, fields: impl Into<Fields>) -> Self {
         Self {
+            doc: None,
             n: n.into(),
             fields: fields.into(),
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tuple {
     pub fields: Vec<UnnamedField>,
 }

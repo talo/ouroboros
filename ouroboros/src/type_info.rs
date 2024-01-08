@@ -10,8 +10,9 @@ pub trait TypeInfo {
     fn t() -> Type;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
+    // Basic types
     Bool,
     I8,
     I16,
@@ -26,12 +27,18 @@ pub enum Type {
     F32,
     F64,
     String,
+
+    // Product types
     Array(Array),
     Record(Record),
     Tuple(Tuple),
+
+    // Sum types
     Enum(Enum),
     Optional(Optional),
     Union(Union),
+
+    // Special types
     Symbolic(Symbolic),
 }
 

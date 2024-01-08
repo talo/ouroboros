@@ -1,0 +1,11 @@
+[package]
+name = "ouroboros-vm-stdlib"
+edition = "2021"
+version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde = { version = "1.0" }
+serde_json = { version = "1.0" }
