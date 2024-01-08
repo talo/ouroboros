@@ -240,13 +240,16 @@ pub mod de {
     /// cannot be interpreted.
     #[derive(Clone)]
     enum SuspendedType {
-        Int(u64),
+        U64(u64),
         Str(String),
         Seq(Vec<SuspendedType>),
         Map(HashMap<String, SuspendedType>),
     }
 
-    impl<E: de::Error> Into<Result<Type, E>> for SuspendedType {
+    impl<E> Into<Result<Type, E>> for SuspendedType
+    where
+        E: de::Error,
+    {
         fn into(self) -> Result<Type, E> {
             match self {
                 // Basic and symbolic kinds
@@ -352,14 +355,14 @@ pub mod de {
                                                     ));
                                                 }
                                                 match map.into_iter().next().unwrap() {
-                                                    (n, SuspendedType::Int(v)) => {
+                                                    (n, SuspendedType::U64(v)) => {
                                                         Ok(EnumVariant::with_const_value(
                                                             n.clone(),
                                                             v.clone() as u8,
                                                         ))
                                                     }
                                                     _ => Err(de::Error::custom(
-                                                        "expected `n` and `v` to be strings",
+                                                        "invalid enum variant",
                                                     )),
                                                 }
                                             }
@@ -419,7 +422,7 @@ pub mod de {
                                                         ))
                                                     }
                                                     _ => Err(de::Error::custom(
-                                                        "expected `n` and `v` to be strings",
+                                                        "invalid union variant",
                                                     )),
                                                 }
                                             }
@@ -500,28 +503,28 @@ pub mod de {
         where
             E: de::Error,
         {
-            Ok(SuspendedType::Int(value as u64))
+            Ok(SuspendedType::U64(value as u64))
         }
 
         fn visit_u16<E>(self, value: u16) -> Result<Self::Value, E>
         where
             E: de::Error,
         {
-            Ok(SuspendedType::Int(value as u64))
+            Ok(SuspendedType::U64(value as u64))
         }
 
         fn visit_u32<E>(self, value: u32) -> Result<Self::Value, E>
         where
             E: de::Error,
         {
-            Ok(SuspendedType::Int(value as u64))
+            Ok(SuspendedType::U64(value as u64))
         }
 
         fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
         where
             E: de::Error,
         {
-            Ok(SuspendedType::Int(value))
+            Ok(SuspendedType::U64(value))
         }
 
         fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
