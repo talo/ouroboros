@@ -10,6 +10,7 @@ pub mod ser {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
+        Func, Generic,
     };
 
     impl Serialize for Type {
@@ -36,6 +37,7 @@ pub mod ser {
 
                 // Product types
                 Self::Array(array) => array.serialize(serializer),
+                Self::Func(func) => func.serialize(serializer),
                 Self::Record(fields) => fields.serialize(serializer),
                 Self::Tuple(tuple) => tuple.serialize(serializer),
 
@@ -46,6 +48,7 @@ pub mod ser {
 
                 // Special types
                 Self::Symbolic(sym) => sym.serialize(serializer),
+                Self::Generic(gen) => gen.serialize(serializer),
             }
         }
     }
@@ -62,6 +65,18 @@ pub mod ser {
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("k", "array")?;
             map.serialize_entry("t", &self.t)?;
+            map.end()
+        }
+    }
+
+    impl Serialize for Func {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut map = serializer.serialize_map(Some(2))?;
+            map.serialize_entry("k", "func")?;
+            map.serialize_entry("t", &[&self.a, &self.b])?;
             map.end()
         }
     }
@@ -178,6 +193,15 @@ pub mod ser {
         }
     }
 
+    impl Serialize for Generic {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(&format!("^{}", &self.n))
+        }
+    }
+
     //
     // Fields
     //
@@ -233,6 +257,7 @@ pub mod de {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
+        Func,
     };
 
     /// Suspended types are types that are not yet fully deserialized. While
@@ -298,6 +323,23 @@ pub mod de {
                                 let inner_type =
                                     <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?;
                                 Ok(Type::from(Array::new(inner_type)))
+                            }
+                            "func" => {
+                                let ab = match t {
+                                    SuspendedType::Seq(seq) if seq.len() == 2 => [
+                                        <SuspendedType as Into<Result<Type, E>>>::into(
+                                            seq[0].clone(),
+                                        ),
+                                        <SuspendedType as Into<Result<Type, E>>>::into(
+                                            seq[1].clone(),
+                                        ),
+                                    ],
+                                    _ => return Err(de::Error::custom("expected func type")),
+                                };
+                                match ab {
+                                    [Ok(a), Ok(b)] => Ok(Type::from(Func::new(a, b))),
+                                    _ => Err(de::Error::custom("invalid func type")),
+                                }
                             }
                             "record" => {
                                 let fields = match t {

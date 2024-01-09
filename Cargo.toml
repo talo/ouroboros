@@ -3,8 +3,8 @@ members = [
     "ouroboros",
     "ouroboros-proc-macro",
     "ouroboros-vm",
-    "ouroboros-vm-stdlib",
+    "ouroboros-vm-prelude",
+    "ouroboros-wasm",
 ]
-
-[workspace.package]
-version = "0.1.0"
+package = { version = "0.1.0" }
+resolver = "2"

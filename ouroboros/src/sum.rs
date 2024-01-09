@@ -15,6 +15,20 @@ impl Enum {
             variants: variants.into(),
         }
     }
+
+    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
+        // Stringy compat
+        (value.is_string()
+            && value.as_str().map(|v| self
+                .variants
+                .iter()
+                .any(|variant| v == variant.n)).unwrap_or(false))
+            || // Const-value compat
+            (value.is_u64()
+                && value.as_u64().map(|v| self.variants.iter().any(|variant| 
+                    variant.v.map(|u| u == v as u8).unwrap_or(false)
+                )).unwrap_or(false))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,6 +64,10 @@ impl Optional {
             t: Box::new(t.into()),
         }
     }
+
+    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
+        value.is_null() || self.t.is_compat(value)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -64,6 +82,25 @@ impl Union {
             n: n.into(),
             variants: variants.into(),
         }
+    }
+
+    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
+        // Stringy compat
+        (value.is_string()
+            && value.as_str().map(|s| self
+                .variants
+                .iter()
+                .any(|variant|  s == variant.n)).unwrap_or(false))
+                || // Variant compat
+                (
+                    value.is_object() && value.as_object().map(|object| {
+                        self.variants.iter().any(|variant| {
+                            object.get(&variant.n)
+                                .and_then(|object_fields| variant.fields.as_ref().map(|variant_fields| variant_fields.is_compat(object_fields)))
+                                .unwrap_or(false)
+                        })
+                    }).unwrap_or(false)    
+                )
     }
 }
 

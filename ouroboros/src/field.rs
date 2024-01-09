@@ -45,6 +45,31 @@ impl Fields {
     pub fn unnamed(fields: impl Into<Vec<UnnamedField>>) -> Self {
         Self::Unnamed(fields.into())
     }
+
+    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
+        match self {
+            Self::Unnamed(unnamed) if value.is_array() => value
+                .as_array()
+                .map(|array| {
+                    array.len() >= unnamed.len()
+                        && unnamed
+                            .iter()
+                            .enumerate()
+                            .all(|(i, f)| array.get(i).map(|v| f.t.is_compat(v)).unwrap_or(false))
+                })
+                .unwrap_or(false),
+            Self::Named(named) if value.is_object() => value
+                .as_object()
+                .map(|object| {
+                    object.len() >= named.len()
+                        && named
+                            .iter()
+                            .all(|f| object.get(&f.n).map(|v| f.t.is_compat(v)).unwrap_or(false))
+                })
+                .unwrap_or(false),
+            _ => false,
+        }
+    }
 }
 
 impl PartialEq for Fields {

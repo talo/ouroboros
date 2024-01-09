@@ -1,18 +1,13 @@
 [package]
-name = "ouroboros-vm"
+name = "ouroboros-vm-prelude"
 edition = "2021"
 version.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-anyhow = { version = "1.0.75" }
 ouroboros = { path = "../ouroboros" }
 ouroboros-wasm = { path = "../ouroboros-wasm" }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }
-wasmtime = { version = "15.0.1", features = ["async"] }
-
-[dev-dependencies]
-tokio = { version = "1.35", features = ["macros", "rt"] }
-
-[features]
-wasm = []

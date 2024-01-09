@@ -640,6 +640,8 @@ name = "ouroboros-vm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ouroboros",
+ "ouroboros-wasm",
  "serde",
  "serde_json",
  "tokio",
@@ -647,9 +649,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "ouroboros-vm-stdlib"
+name = "ouroboros-vm-prelude"
 version = "0.1.0"
 dependencies = [
+ "ouroboros",
+ "ouroboros-wasm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ouroboros-wasm"
+version = "0.1.0"
+dependencies = [
+ "ouroboros",
  "serde",
  "serde_json",
 ]

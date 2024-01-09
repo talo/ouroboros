@@ -30,12 +30,14 @@ impl TypenameVisitor {
             Type::F64 => Self::visit_f64_with_prefix(prefix),
             Type::String => Self::visit_string_with_prefix(prefix),
             Type::Array(arr) => Self::visit_array_with_prefix(arr, prefix),
+            Type::Func(_) => todo!(),
             Type::Record(record) => Self::visit_record_with_prefix(record, prefix),
             Type::Tuple(tuple) => Self::visit_tuple_with_prefix(tuple, prefix),
             Type::Enum(e) => Self::visit_enum_with_prefix(e, prefix),
             Type::Optional(optional) => Self::visit_optional_with_prefix(optional, prefix),
             Type::Union(union) => Self::visit_union_with_prefix(union, prefix),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
+            Type::Generic(_) => todo!(),
         }
     }
 
@@ -240,13 +242,15 @@ impl TypedefVisitor {
             Type::F32 => Self::visit_f32_with_prefix(prefix),
             Type::F64 => Self::visit_f64_with_prefix(prefix),
             Type::String => Self::visit_string_with_prefix(prefix),
-            Type::Array(list) => Self::visit_array_with_prefix(list, prefix),
+            Type::Array(arr) => Self::visit_array_with_prefix(arr, prefix),
+            Type::Func(_) => todo!(),
             Type::Record(record) => Self::visit_record_with_prefix(record, prefix),
             Type::Tuple(tuple) => Self::visit_tuple_with_prefix(tuple, prefix),
             Type::Enum(e) => Self::visit_enum_with_prefix(e, prefix),
             Type::Optional(optional) => Self::visit_optional_with_prefix(optional, prefix),
             Type::Union(union) => Self::visit_union_with_prefix(union, prefix),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
+            Type::Generic(_) => todo!(),
         }
     }
 

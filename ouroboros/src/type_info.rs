@@ -3,6 +3,7 @@ use crate::{
     product::{Array, Record, Tuple},
     sum::{Enum, Optional, Union},
     symbolic::Symbolic,
+    Func, Generic,
 };
 
 pub trait TypeInfo {
@@ -32,6 +33,7 @@ pub enum Type {
     Array(Array),
     Record(Record),
     Tuple(Tuple),
+    Func(Func),
 
     // Sum types
     Enum(Enum),
@@ -40,11 +42,48 @@ pub enum Type {
 
     // Special types
     Symbolic(Symbolic),
+    Generic(Generic),
+}
+
+impl Type {
+    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
+        match self {
+            Self::Bool => value.is_boolean(),
+            Self::I8 => value.is_i64(),
+            Self::I16 => value.is_i64(),
+            Self::I32 => value.is_i64(),
+            Self::I64 => value.is_i64(),
+            Self::I128 => value.is_i64(),
+            Self::U8 => value.is_u64(),
+            Self::U16 => value.is_u64(),
+            Self::U32 => value.is_u64(),
+            Self::U64 => value.is_u64(),
+            Self::U128 => value.is_u64(),
+            Self::F32 => value.is_f64(),
+            Self::F64 => value.is_f64(),
+            Self::String => value.is_string(),
+            Self::Array(arr) => arr.is_compat(value),
+            Self::Func(func) => func.is_compat(value),
+            Self::Record(rec) => rec.is_compat(value),
+            Self::Tuple(tup) => tup.is_compat(value),
+            Self::Enum(enm) => enm.is_compat(value),
+            Self::Optional(opt) => opt.is_compat(value),
+            Self::Union(union) => union.is_compat(value),
+            Self::Symbolic(sym) => sym.is_compat(value),
+            Self::Generic(gen) => gen.is_compat(value),
+        }
+    }
 }
 
 impl From<Array> for Type {
     fn from(t: Array) -> Self {
         Self::Array(t)
+    }
+}
+
+impl From<Func> for Type {
+    fn from(t: Func) -> Self {
+        Self::Func(t)
     }
 }
 
@@ -81,6 +120,12 @@ impl From<Union> for Type {
 impl From<Symbolic> for Type {
     fn from(t: Symbolic) -> Self {
         Self::Symbolic(t)
+    }
+}
+
+impl From<Generic> for Type {
+    fn from(t: Generic) -> Self {
+        Self::Generic(t)
     }
 }
 

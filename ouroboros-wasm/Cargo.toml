@@ -1,11 +1,9 @@
 [package]
-name = "ouroboros-vm-stdlib"
+name = "ouroboros-wasm"
 edition = "2021"
 version.workspace = true
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
+ouroboros = { path = "../ouroboros" }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }

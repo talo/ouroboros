@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{Data, DeriveInput, Fields, Type, Variant};
+use quote::{format_ident, quote};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, FnArg, ItemFn, ReturnType, Type, Variant};
 
 #[proc_macro_derive(TypeInfo)]
 pub fn derive_type_info(input: TokenStream) -> TokenStream {
@@ -122,4 +122,52 @@ fn describe_type(ty: &Type) -> proc_macro2::TokenStream {
 
 fn is_enum_variant(variant: &Variant) -> bool {
     matches!(variant.fields, Fields::Unit)
+}
+
+#[proc_macro_attribute]
+pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input_fn = parse_macro_input!(item as ItemFn);
+    let fn_name = &input_fn.sig.ident;
+    let entrypoint_fn_name = format_ident!("__entrypoint__{}", fn_name);
+    let inputs = &input_fn.sig.inputs;
+    let output_type = &input_fn.sig.output;
+
+    // Extracting input types (assuming a single tuple argument)
+    let input_types = if let Some(FnArg::Typed(pat_type)) = inputs.first() {
+        &pat_type.ty
+    } else {
+        panic!("Expected function with a single tuple argument");
+    };
+
+    // Extracting output type
+    let output_type = if let ReturnType::Type(_, ty) = output_type {
+        ty
+    } else {
+        panic!("Expected function with a return type");
+    };
+
+    // Create the original function unchanged
+    let original_fn = quote! { #input_fn };
+
+    // Create the __ouroboros__entrypoint function
+    let entrypoint_fn = quote! {
+        #[no_mangle]
+        pub extern "C" fn #entrypoint_fn_name(args: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
+            let args = ::ouroboros_wasm::decode_args::<#input_types, #output_type>(stringify!(#fn_name), args);
+            match args {
+                ::ouroboros_wasm::ParseResult::Args(args) => ::ouroboros_wasm::encode_result(
+                    #fn_name(args)
+                ),
+                ::ouroboros_wasm::ParseResult::Manifest(manifest) => ::ouroboros_wasm::encode_result_pretty(manifest),
+            }
+        }
+    };
+
+    // Combine both functions into the final output
+    let output = quote! {
+        #original_fn
+        #entrypoint_fn
+    };
+
+    output.into()
 }
