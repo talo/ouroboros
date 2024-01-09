@@ -208,6 +208,17 @@ mod test {
 
                     let data = &mut memory.data_mut(&mut caller);
 
+                    // Check that the allocated memory is sufficiently sized to
+                    // hold the result
+                    if result_data_ptr as usize + result_json_size + 4 > data.len() {
+                        write_err_code_to_memory(
+                            data,
+                            out_err_code,
+                            ErrorCode::MemoryIndexOutOfBounds as i32,
+                        );
+                        return;
+                    }
+
                     data[result_data_ptr as usize..result_data_ptr as usize + result_json_size]
                         .copy_from_slice(result_json.as_slice());
                     data[out_result as usize..out_result as usize + 4]
