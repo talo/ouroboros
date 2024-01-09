@@ -24,6 +24,14 @@ pub struct Record {
 }
 
 impl Record {
+    pub fn new_unit(n: impl Into<String>) -> Self {
+        Self {
+            doc: None,
+            n: n.into(),
+            fields: Fields::Unnamed(vec![]),
+        }
+    }
+
     pub fn new(n: impl Into<String>, fields: impl Into<Fields>) -> Self {
         Self {
             doc: None,

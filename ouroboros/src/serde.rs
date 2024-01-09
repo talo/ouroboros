@@ -440,7 +440,7 @@ pub mod de {
                 }
 
                 // No kind is specified
-                _ => return Err(E::custom(format!("invalid type"))),
+                _ => return Err(E::custom(format!("invalid kind"))),
             }
         }
     }
