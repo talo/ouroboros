@@ -5,12 +5,14 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Array {
+    pub doc: Option<String>,
     pub t: Box<Type>,
 }
 
 impl Array {
     pub fn new(t: impl Into<Type>) -> Self {
         Self {
+            doc: None,
             t: Box::new(t.into()),
         }
     }
@@ -26,6 +28,7 @@ impl Array {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Func {
+    pub doc: Option<String>,
     pub a: Box<Type>,
     pub b: Box<Type>,
 }
@@ -33,6 +36,7 @@ pub struct Func {
 impl Func {
     pub fn new(a: impl Into<Type>, b: impl Into<Type>) -> Self {
         Self {
+            doc: None,
             a: Box::new(a.into()),
             b: Box::new(b.into()),
         }
@@ -78,12 +82,14 @@ impl Record {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tuple {
+    pub doc: Option<String>,
     pub fields: Vec<UnnamedField>,
 }
 
 impl Tuple {
     pub fn new(fields: impl Into<Vec<UnnamedField>>) -> Self {
         Self {
+            doc: None,
             fields: fields.into(),
         }
     }

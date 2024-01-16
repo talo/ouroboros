@@ -4,6 +4,7 @@ use crate::{field::Fields, type_info::Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Enum {
+    pub doc: Option<String>,
     pub n: String,
     pub variants: Vec<EnumVariant>,
 }
@@ -11,6 +12,7 @@ pub struct Enum {
 impl Enum {
     pub fn new(n: impl Into<String>, variants: impl Into<Vec<EnumVariant>>) -> Self {
         Self {
+            doc: None,
             n: n.into(),
             variants: variants.into(),
         }
@@ -55,12 +57,14 @@ impl EnumVariant {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Optional {
+    pub doc: Option<String>,
     pub t: Box<Type>,
 }
 
 impl Optional {
     pub fn new(t: impl Into<Type>) -> Self {
         Self {
+            doc: None,
             t: Box::new(t.into()),
         }
     }
@@ -72,6 +76,7 @@ impl Optional {
 
 #[derive(Clone, Debug)]
 pub struct Union {
+    pub doc: Option<String>,
     pub n: String,
     pub variants: Vec<UnionVariant>,
 }
@@ -79,6 +84,7 @@ pub struct Union {
 impl Union {
     pub fn new(n: impl Into<String>, variants: impl Into<Vec<UnionVariant>>) -> Self {
         Self {
+            doc: None,
             n: n.into(),
             variants: variants.into(),
         }

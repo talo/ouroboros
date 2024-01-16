@@ -62,7 +62,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(2))?;
+            let mut map = serializer.serialize_map(Some(3))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "array")?;
             map.serialize_entry("t", &self.t)?;
             map.end()
@@ -74,7 +77,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(2))?;
+            let mut map = serializer.serialize_map(Some(3))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "func")?;
             map.serialize_entry("t", &[&self.a, &self.b])?;
             map.end()
@@ -86,7 +92,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(3))?;
+            let mut map = serializer.serialize_map(Some(4))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "record")?;
             map.serialize_entry("t", &self.fields)?;
             map.serialize_entry("n", &self.n)?;
@@ -99,7 +108,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(2))?;
+            let mut map = serializer.serialize_map(Some(3))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "tuple")?;
             map.serialize_entry("t", &self.fields)?;
             map.end()
@@ -115,7 +127,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(3))?;
+            let mut map = serializer.serialize_map(Some(4))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "enum")?;
             map.serialize_entry("t", &self.variants)?;
             map.serialize_entry("n", &self.n)?;
@@ -144,7 +159,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(2))?;
+            let mut map = serializer.serialize_map(Some(3))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "optional")?;
             map.serialize_entry("t", &self.t)?;
             map.end()
@@ -156,7 +174,10 @@ pub mod ser {
         where
             S: Serializer,
         {
-            let mut map = serializer.serialize_map(Some(3))?;
+            let mut map = serializer.serialize_map(Some(4))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
             map.serialize_entry("k", "union")?;
             map.serialize_entry("t", &self.variants)?;
             map.serialize_entry("n", &self.n)?;
@@ -265,6 +286,7 @@ pub mod de {
     /// cannot be interpreted.
     #[derive(Clone)]
     enum SuspendedType {
+        Null,
         U64(u64),
         Str(String),
         Seq(Vec<SuspendedType>),
@@ -314,6 +336,12 @@ pub mod de {
                         Some(_) => return Err(de::Error::custom("invalid name")),
                         None => "_".to_string(),
                     };
+                    // Optional doc
+                    let doc = match map.get("doc") {
+                        Some(SuspendedType::Str(d)) => Some(d.clone()),
+                        Some(_) => return Err(de::Error::custom("invalid documentation")),
+                        None => None,
+                    };
 
                     // Check the kind
                     match k {
@@ -322,7 +350,9 @@ pub mod de {
                             "array" => {
                                 let inner_type =
                                     <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?;
-                                Ok(Type::from(Array::new(inner_type)))
+                                let mut arr = Array::new(inner_type);
+                                arr.doc = doc;
+                                Ok(Type::from(arr))
                             }
                             "func" => {
                                 let ab = match t {
@@ -337,7 +367,11 @@ pub mod de {
                                     _ => return Err(de::Error::custom("expected func type")),
                                 };
                                 match ab {
-                                    [Ok(a), Ok(b)] => Ok(Type::from(Func::new(a, b))),
+                                    [Ok(a), Ok(b)] => {
+                                        let mut func = Func::new(a, b);
+                                        func.doc = doc;
+                                        Ok(Type::from(func))
+                                    }
                                     _ => Err(de::Error::custom("invalid func type")),
                                 }
                             }
@@ -365,7 +399,9 @@ pub mod de {
                                     ),
                                     _ => return Err(de::Error::custom("expected record type")),
                                 };
-                                Ok(Type::from(Record::new(n, fields)))
+                                let mut rec = Record::new(n, fields);
+                                rec.doc = doc;
+                                Ok(Type::from(rec))
                             }
                             "tuple" => {
                                 let tuple = match t {
@@ -380,7 +416,9 @@ pub mod de {
                                         .collect::<Result<Vec<_>, _>>()?,
                                     _ => return Err(de::Error::custom("expected tuple type")),
                                 };
-                                Ok(Type::from(Tuple::new(tuple)))
+                                let mut tuple = Tuple::new(tuple);
+                                tuple.doc = doc;
+                                Ok(Type::from(tuple))
                             }
 
                             // Sum types
@@ -413,12 +451,16 @@ pub mod de {
                                         .collect::<Result<Vec<_>, _>>()?,
                                     _ => return Err(de::Error::custom("expected enum type")),
                                 };
-                                Ok(Type::from(Enum::new(n, variants)))
+                                let mut enm = Enum::new(n, variants);
+                                enm.doc = doc;
+                                Ok(Type::from(enm))
                             }
                             "optional" => {
                                 let inner_type =
                                     <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?;
-                                Ok(Type::from(Optional::new(inner_type)))
+                                let mut opt = Optional::new(inner_type);
+                                opt.doc = doc;
+                                Ok(Type::from(opt))
                             }
                             "union" => {
                                 let variants = match t {
@@ -473,7 +515,9 @@ pub mod de {
                                         .collect::<Result<Vec<_>, _>>()?,
                                     _ => return Err(de::Error::custom("expected union type")),
                                 };
-                                Ok(Type::from(Union::new(n, variants)))
+                                let mut union = Union::new(n, variants);
+                                union.doc = doc;
+                                Ok(Type::from(union))
                             }
                             _ => Err(de::Error::custom(format!("unexpected kind `{k}`"))),
                         },
@@ -539,6 +583,13 @@ pub mod de {
 
         fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
             formatter.write_str("valid type")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(SuspendedType::Null)
         }
 
         fn visit_u8<E>(self, value: u8) -> Result<Self::Value, E>

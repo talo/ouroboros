@@ -1,11 +1,15 @@
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Symbolic {
+    pub doc: Option<String>,
     pub n: String,
 }
 
 impl Symbolic {
     pub fn new(n: impl Into<String>) -> Self {
-        Self { n: n.into() }
+        Self {
+            doc: None,
+            n: n.into(),
+        }
     }
 
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
