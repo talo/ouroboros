@@ -1,3 +1,4 @@
+use ouroboros::transpile::cpp::TypedefVisitor;
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
 
@@ -75,4 +76,6 @@ fn test_union() {
             ]
         ))
     );
+
+    println!("{}", TypedefVisitor::visit_type(&Baz::t()));
 }

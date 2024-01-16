@@ -13,6 +13,7 @@ pub enum ErrorCode {
     InvalidUtf8 = 2,
     MemoryIndexOutOfBounds = 3,
     MemoryRangeOutOfBounds = 4,
+    Internal = 255,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -88,24 +89,22 @@ where
     fn call(&self, args: Self::Args) -> Self::Ret {
         use std::{ptr, slice};
 
-        let args = serde_json::to_vec(&args).expect("invalid fn args");
-        let extras = serde_json::to_vec(&self.extras).expect("invalid fn extras");
+        let lambda = serde_json::to_vec(&self).expect("invalid lambda");
+        let args = serde_json::to_vec(&args).expect("invalid args");
 
-        let mut fn_result = ptr::null();
-        let mut fn_result_size = 0u32;
+        let mut ret = ptr::null();
+        let mut ret_size = 0u32;
 
         let mut err_code = 0u32;
 
         unsafe {
             __ouroboros__call_fn(
-                self.n.as_ptr(),
-                self.n.len() as u32,
+                lambda.as_ptr(),
+                lambda.len() as u32,
                 args.as_ptr(),
                 args.len() as u32,
-                extras.as_ptr(),
-                extras.len() as u32,
-                &mut fn_result,
-                &mut fn_result_size,
+                &mut ret,
+                &mut ret_size,
                 &mut err_code,
             );
         }
@@ -114,7 +113,7 @@ where
             panic!("`__ouroboros__call_fn` returned error code {}", err_code);
         }
 
-        serde_json::from_slice(unsafe { slice::from_raw_parts(fn_result, fn_result_size as usize) })
+        serde_json::from_slice(unsafe { slice::from_raw_parts(ret, ret_size as usize) })
             .expect("invalid fn result")
     }
 }
@@ -136,17 +135,14 @@ pub extern "C" fn __ouroboros__free(ptr: *mut u8, size: usize) {
 
 extern "C" {
     pub fn __ouroboros__call_fn(
-        name_ptr: *const u8,
-        name_size: u32,
+        lambda_ptr: *const u8,
+        lambda_size: u32,
 
         args_ptr: *const u8,
         args_size: u32,
 
-        extras_ptr: *const u8,
-        extras_size: u32,
-
-        result_ptr: *mut *const u8,
-        result_size: *mut u32,
+        ret_ptr: *mut *const u8,
+        ret_size: *mut u32,
 
         err_code_ptr: *mut u32,
     );
