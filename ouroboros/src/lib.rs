@@ -8,6 +8,7 @@ pub use sum::*;
 pub use symbolic::*;
 pub use type_info::*;
 
+pub mod features;
 pub mod field;
 pub mod generic;
 pub mod lambda;
@@ -16,9 +17,3 @@ pub mod sum;
 pub mod symbolic;
 pub mod transpile;
 pub mod type_info;
-
-#[cfg(feature = "arrow")]
-pub mod arrow;
-
-#[cfg(feature = "serde")]
-pub mod serde;

@@ -122,9 +122,6 @@ impl Type {
     }
 }
 
-#[cfg(feature = "graphql")]
-async_graphql::scalar!(Type);
-
 impl From<Array> for Type {
     fn from(t: Array) -> Self {
         Self::Array(t)
