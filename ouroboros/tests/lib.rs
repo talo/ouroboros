@@ -1,9 +1,13 @@
-use ouroboros::transpile::cpp::TypedefVisitor;
+use ouroboros::{transpile::cpp::TypedefVisitor, Tuple, UnnamedField};
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
 
 #[derive(Clone, Debug, TypeInfo)]
 struct Unit;
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, TypeInfo)]
+struct Unnamed(u32, Vec<u32>, Option<u32>);
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, TypeInfo)]
@@ -32,6 +36,17 @@ enum Baz {
 fn test_unit_record() {
     assert_eq!(Unit::tname(), "Unit");
     assert_eq!(Unit::t(), Type::Record(Record::new_unit("Unit")));
+}
+
+#[test]
+fn test_tuple() {
+    assert_eq!(Unnamed::tname(), "Unnamed");
+    assert_eq!(
+        Unnamed::t(),
+        Type::Tuple(Tuple::new(
+            [Type::U32, Vec::<u32>::t(), Option::<u32>::t(),].map(UnnamedField::new)
+        ))
+    );
 }
 
 #[test]
