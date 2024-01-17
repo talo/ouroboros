@@ -32,7 +32,7 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                         #field_type
                     }
                 });
-                quote!(::ouroboros::Type::Tuple(::ouroboros::Tuple::new([#(#fields,)*].map(::ouroboros::UnnamedField::new))))
+                quote!(::ouroboros::Type::Record(::ouroboros::Record::new(#name_as_str, [#(#fields,)*].map(::ouroboros::UnnamedField::new))))
             }
             Fields::Unit => quote!(
                 ::ouroboros::Type::Record(::ouroboros::Record::new_unit(#name_as_str))

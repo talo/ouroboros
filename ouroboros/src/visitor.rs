@@ -6,41 +6,145 @@ use crate::{
 };
 
 pub trait ValueVisitor {
-    fn visit_bool(&mut self, _val: bool) {}
-    fn visit_u8(&mut self, _val: u8) {}
-    fn visit_u16(&mut self, _val: u16) {}
-    fn visit_u32(&mut self, _val: u32) {}
-    fn visit_u64(&mut self, _val: u64) {}
-    fn visit_u128(&mut self, _val: u128) {}
-    fn visit_i8(&mut self, _val: i8) {}
-    fn visit_i16(&mut self, _val: i16) {}
-    fn visit_i32(&mut self, _val: i32) {}
-    fn visit_i64(&mut self, _val: i64) {}
-    fn visit_i128(&mut self, _val: i128) {}
-    fn visit_f32(&mut self, _val: f32) {}
-    fn visit_f64(&mut self, _val: f64) {}
-    fn visit_string(&mut self, _val: &str) {}
-    fn visit_array(&mut self, _arr: &Array, _val: &Vec<Value>) {}
-    fn visit_func(&mut self, _func: &Func, _val: &Lambda<Value, Value>) {}
-    fn visit_record_with_named_fields(&mut self, _rec: &Record, _val: &Map<String, Value>) {}
-    fn visit_record_with_unnamed_fields(&mut self, _rec: &Record, _val: &Vec<Value>) {}
-    fn visit_tuple(&mut self, _tup: &Tuple, _val: &Vec<Value>) {}
-    fn visit_enum_variant_string(&mut self, _enm: &Enum, _var: &EnumVariant, _val: &str) {}
-    fn visit_enum_variant_const_value(&mut self, _enm: &Enum, _var: &EnumVariant, _val: u8) {}
-    fn visit_optional(&mut self, _opt: &Optional, _val: Option<&Value>) {}
-    fn visit_union_variant_string(&mut self, _union: &Union, _var: &UnionVariant, _val: &str) {}
+    type Error;
+
+    fn visit_bool(&mut self, _val: bool) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u8(&mut self, _val: u8) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u16(&mut self, _val: u16) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u32(&mut self, _val: u32) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u64(&mut self, _val: u64) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u128(&mut self, _val: u128) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i8(&mut self, _val: i8) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i16(&mut self, _val: i16) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i32(&mut self, _val: i32) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i64(&mut self, _val: i64) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i128(&mut self, _val: i128) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_f32(&mut self, _val: f32) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_f64(&mut self, _val: f64) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_string(&mut self, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_array(&mut self, _arr: &Array, _val: &Vec<Value>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_func(&mut self, _func: &Func, _val: &Lambda<Value, Value>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_record_with_named_fields(
+        &mut self,
+        _rec: &Record,
+        _val: &Map<String, Value>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_record_with_unnamed_fields(
+        &mut self,
+        _rec: &Record,
+        _val: &Vec<Value>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_tuple(&mut self, _tup: &Tuple, _val: &Vec<Value>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_enum_variant_string(
+        &mut self,
+        _enm: &Enum,
+        _var: &EnumVariant,
+        _val: &str,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_enum_variant_const_value(
+        &mut self,
+        _enm: &Enum,
+        _var: &EnumVariant,
+        _val: u8,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_optional(&mut self, _opt: &Optional, _val: Option<&Value>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_union_variant_string(
+        &mut self,
+        _union: &Union,
+        _var: &UnionVariant,
+        _val: &str,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn visit_union_variant_fields(
         &mut self,
         _union: &Union,
         _var: &UnionVariant,
         _val: &Map<String, Value>,
-    ) {
+    ) -> Result<(), Self::Error> {
+        Ok(())
     }
-    fn visit_symbolic(&mut self, _sym: &Symbolic, _val: &str) {}
-    fn visit_generic(&mut self, _gen: &Generic, _val: &str) {}
+
+    fn visit_symbolic(&mut self, _sym: &Symbolic, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_generic(&mut self, _gen: &Generic, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
-pub fn walk_value<V: ValueVisitor>(v: &mut V, t: &Type, val: &Value) {
+pub fn walk_value<V>(v: &mut V, t: &Type, val: &Value) -> Result<(), V::Error>
+where
+    V: ValueVisitor,
+{
     if !t.is_compat(val) {
         todo!()
     }
@@ -62,57 +166,60 @@ pub fn walk_value<V: ValueVisitor>(v: &mut V, t: &Type, val: &Value) {
         Type::String => v.visit_string(val.as_str().expect("value should be string")),
         Type::Array(arr) => {
             let val = val.as_array().expect("value should be array");
-            v.visit_array(arr, val);
+            v.visit_array(arr, val)?;
             for val in val {
-                walk_value(v, &arr.t, val)
+                walk_value(v, &arr.t, val)?;
             }
+            Ok(())
         }
         Type::Func(func) => {
             let val = serde_json::from_value::<Lambda<Value, Value>>(val.clone())
                 .expect("value should be function");
-            v.visit_func(func, &val);
+            v.visit_func(func, &val)
         }
         Type::Record(rec) => match &rec.fields {
             Fields::Named(fields) => {
                 let val = val.as_object().expect("value should be record");
-                v.visit_record_with_named_fields(rec, val);
+                v.visit_record_with_named_fields(rec, val)?;
                 for field in fields {
                     walk_value(
                         v,
                         &field.t,
                         val.get(&field.n).expect("value should have record field"),
-                    )
+                    )?;
                 }
+                Ok(())
             }
             Fields::Unnamed(fields) => {
                 let val = val.as_array().expect("value should be record");
-                v.visit_record_with_unnamed_fields(rec, val);
+                v.visit_record_with_unnamed_fields(rec, val)?;
                 for (i, field) in fields.iter().enumerate() {
                     walk_value(
                         v,
                         &field.t,
                         val.get(i).expect("value should have record field"),
-                    )
+                    )?;
                 }
+                Ok(())
             }
         },
         Type::Tuple(tup) => {
             let val = val.as_array().expect("value should be tuple");
-            v.visit_tuple(tup, val);
+            v.visit_tuple(tup, val)?;
             for (i, field) in tup.fields.iter().enumerate() {
                 walk_value(
                     v,
                     &field.t,
                     val.get(i).expect("value should have tuple field"),
-                )
+                )?;
             }
+            Ok(())
         }
         Type::Enum(enm) => match val {
             Value::String(string) => {
                 for variant in &enm.variants {
                     if string == &variant.n {
-                        v.visit_enum_variant_string(enm, variant, string);
-                        return;
+                        return v.visit_enum_variant_string(enm, variant, string);
                     }
                 }
                 panic!("value should be enum variant (string)")
@@ -120,8 +227,11 @@ pub fn walk_value<V: ValueVisitor>(v: &mut V, t: &Type, val: &Value) {
             Value::Number(num) => {
                 for variant in &enm.variants {
                     if num.as_u64() == variant.v.map(|y| y as u64) {
-                        v.visit_enum_variant_const_value(enm, variant, num.as_u64().unwrap() as u8);
-                        return;
+                        return v.visit_enum_variant_const_value(
+                            enm,
+                            variant,
+                            num.as_u64().unwrap() as u8,
+                        );
                     }
                 }
                 panic!("value should be enum variant (const value)")
@@ -130,9 +240,9 @@ pub fn walk_value<V: ValueVisitor>(v: &mut V, t: &Type, val: &Value) {
         },
         Type::Optional(opt) => {
             if val.is_null() {
-                v.visit_optional(opt, None);
+                v.visit_optional(opt, None)
             } else {
-                v.visit_optional(opt, Some(val));
+                v.visit_optional(opt, Some(val))?;
                 walk_value(v, &opt.t, val)
             }
         }
@@ -141,8 +251,7 @@ pub fn walk_value<V: ValueVisitor>(v: &mut V, t: &Type, val: &Value) {
                 for variant in &union.variants {
                     if let None = variant.fields {
                         if string == &variant.n {
-                            v.visit_union_variant_string(union, variant, string);
-                            return;
+                            return v.visit_union_variant_string(union, variant, string);
                         }
                     }
                 }
@@ -160,8 +269,7 @@ pub fn walk_value<V: ValueVisitor>(v: &mut V, t: &Type, val: &Value) {
                         })
                         .unwrap_or(false)
                     {
-                        v.visit_union_variant_fields(union, variant, object);
-                        return;
+                        return v.visit_union_variant_fields(union, variant, object);
                     }
                 }
                 panic!("value should be union variant (fields)")

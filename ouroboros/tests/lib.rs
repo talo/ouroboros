@@ -49,7 +49,7 @@ fn test_unit_record() {
 }
 
 #[test]
-fn test_tuple() {
+fn test_unnamed_record() {
     assert_eq!(
         Unnamed::tname(),
         TypeName {
@@ -59,14 +59,15 @@ fn test_tuple() {
     );
     assert_eq!(
         Unnamed::t(),
-        Type::Tuple(Tuple::new(
+        Type::Record(Record::new(
+            "Unnamed",
             [Type::U32, Vec::<u32>::t(), Option::<u32>::t(),].map(UnnamedField::new)
         ))
     );
 }
 
 #[test]
-fn test_record() {
+fn test_named_record() {
     assert_eq!(
         Foo::tname(),
         TypeName {
