@@ -10,7 +10,7 @@ pub mod ser {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Func, Generic,
+        Func, Generic, Ptr,
     };
 
     impl Serialize for Type {
@@ -47,6 +47,7 @@ pub mod ser {
                 Self::Union(union) => union.serialize(serializer),
 
                 // Special types
+                Self::Ptr(p) => p.serialize(serializer),
                 Self::Symbolic(sym) => sym.serialize(serializer),
                 Self::Generic(gen) => gen.serialize(serializer),
             }
@@ -81,7 +82,7 @@ pub mod ser {
             if let Some(d) = &self.doc {
                 map.serialize_entry("doc", d)?;
             }
-            map.serialize_entry("k", "func")?;
+            map.serialize_entry("k", "λ")?;
             map.serialize_entry("t", &[&self.a, &self.b])?;
             map.end()
         }
@@ -205,6 +206,21 @@ pub mod ser {
     // Special types
     //
 
+    impl Serialize for Ptr {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut map = serializer.serialize_map(Some(3))?;
+            if let Some(d) = &self.doc {
+                map.serialize_entry("doc", d)?;
+            }
+            map.serialize_entry("k", "@")?;
+            map.serialize_entry("t", &self.t)?;
+            map.end()
+        }
+    }
+
     impl Serialize for Symbolic {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
@@ -278,7 +294,7 @@ pub mod de {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Func,
+        Func, Ptr,
     };
 
     /// Suspended types are types that are not yet fully deserialized. While
@@ -354,7 +370,7 @@ pub mod de {
                                 arr.doc = doc;
                                 Ok(Type::from(arr))
                             }
-                            "func" => {
+                            "λ" | "func" => {
                                 let ab = match t {
                                     SuspendedType::Seq(seq) if seq.len() == 2 => [
                                         <SuspendedType as Into<Result<Type, E>>>::into(
@@ -518,6 +534,13 @@ pub mod de {
                                 let mut union = Union::new(n, variants);
                                 union.doc = doc;
                                 Ok(Type::from(union))
+                            }
+                            "@" | "ptr" => {
+                                let inner_type =
+                                    <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?;
+                                let mut p = Ptr::new(inner_type);
+                                p.doc = doc;
+                                Ok(Type::from(p))
                             }
                             _ => Err(de::Error::custom(format!("unexpected kind `{k}`"))),
                         },
@@ -765,6 +788,7 @@ mod test {
         product::Record,
         sum::{Enum, EnumVariant, Union, UnionVariant},
         type_info::{Type, TypeInfo},
+        Lambda, Ptr,
     };
 
     #[test]
@@ -775,6 +799,28 @@ mod test {
         let u = serde_json::from_str::<Type>(&json).unwrap();
         assert_eq!(t, u);
         let u = serde_json::from_str::<Type>(r#"{"t":"u8","k":"array"}"#).unwrap();
+        assert_eq!(t, u);
+    }
+
+    #[test]
+    fn test_func() {
+        let t = Lambda::<(u64, u64), u64>::t();
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(
+            json,
+            r#"{"k":"λ","t":[{"k":"tuple","t":["u64","u64"]},"u64"]}"#
+        );
+        let u = serde_json::from_str::<Type>(&json).unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(
+            r#"{"t":[{"k":"tuple","t":["u64","u64"]},"u64"],"k":"λ"}"#,
+        )
+        .unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(
+            r#"{"t":[{"k":"tuple","t":["u64","u64"]},"u64"],"k":"func"}"#,
+        )
+        .unwrap();
         assert_eq!(t, u);
     }
 
@@ -892,6 +938,17 @@ mod test {
             r#"{"n":"Foo","k":"union","t":["Z",{"Y":{"bar":"u8","baz":"u8"}},{"X":["u8","u8"]}]}"#,
         )
         .unwrap();
+        assert_eq!(t, u);
+    }
+
+    #[test]
+    fn test_ptr() {
+        let t = Type::from(Ptr::new(u8::t()));
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(json, r#"{"k":"@","t":"u8"}"#);
+        let u = serde_json::from_str::<Type>(&json).unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(r#"{"t":"u8","k":"@"}"#).unwrap();
         assert_eq!(t, u);
     }
 }

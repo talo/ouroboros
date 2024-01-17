@@ -36,6 +36,7 @@ impl TypenameVisitor {
             Type::Enum(e) => Self::visit_enum_with_prefix(e, prefix),
             Type::Optional(optional) => Self::visit_optional_with_prefix(optional, prefix),
             Type::Union(union) => Self::visit_union_with_prefix(union, prefix),
+            Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
         }
@@ -249,6 +250,7 @@ impl TypedefVisitor {
             Type::Enum(e) => Self::visit_enum_with_prefix(e, prefix),
             Type::Optional(optional) => Self::visit_optional_with_prefix(optional, prefix),
             Type::Union(union) => Self::visit_union_with_prefix(union, prefix),
+            Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
         }

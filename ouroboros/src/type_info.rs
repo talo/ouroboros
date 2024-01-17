@@ -5,7 +5,7 @@ use crate::{
     product::{Array, Record, Tuple},
     sum::{Enum, Optional, Union},
     symbolic::Symbolic,
-    Func, Generic,
+    Func, Generic, Ptr,
 };
 
 pub trait TypeInfo {
@@ -62,6 +62,7 @@ pub enum Type {
     Union(Union),
 
     // Special types
+    Ptr(Ptr),
     Symbolic(Symbolic),
     Generic(Generic),
 }
@@ -90,6 +91,7 @@ impl Type {
             Self::Enum(enm) => &enm.n,
             Self::Optional(_) => "optional",
             Self::Union(union) => &union.n,
+            Self::Ptr(_) => "@",
             Self::Symbolic(sym) => &sym.n,
             Self::Generic(gen) => &gen.n,
         }
@@ -118,6 +120,7 @@ impl Type {
             Self::Enum(enm) => enm.is_compat(value),
             Self::Optional(opt) => opt.is_compat(value),
             Self::Union(union) => union.is_compat(value),
+            Self::Ptr(p) => p.is_compat(value),
             Self::Symbolic(sym) => sym.is_compat(value),
             Self::Generic(gen) => gen.is_compat(value),
         }
@@ -163,6 +166,12 @@ impl From<Optional> for Type {
 impl From<Union> for Type {
     fn from(t: Union) -> Self {
         Self::Union(t)
+    }
+}
+
+impl From<Ptr> for Type {
+    fn from(t: Ptr) -> Self {
+        Self::Ptr(t)
     }
 }
 
@@ -507,6 +516,7 @@ impl Display for Type {
             Self::Enum(enm) => enm.fmt(f),
             Self::Optional(opt) => opt.fmt(f),
             Self::Union(union) => union.fmt(f),
+            Self::Ptr(p) => p.fmt(f),
             Self::Symbolic(sym) => sym.fmt(f),
             Self::Generic(gen) => gen.fmt(f),
         }

@@ -1,8 +1,8 @@
 use serde_json::{Map, Value};
 
 use crate::{
-    Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, Optional, Record, Symbolic, Tuple,
-    Type, Union, UnionVariant,
+    Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, Optional, Ptr, Record, Symbolic,
+    Tuple, Type, Union, UnionVariant,
 };
 
 pub trait ValueVisitor {
@@ -132,6 +132,10 @@ pub trait ValueVisitor {
         Ok(())
     }
 
+    fn visit_ptr(&mut self, _ptr: &Ptr, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn visit_symbolic(&mut self, _sym: &Symbolic, _val: &str) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -146,6 +150,8 @@ where
     V: ValueVisitor,
 {
     if !t.is_compat(val) {
+        println!("t: {:?}", t);
+        println!("val: {:?}", val);
         todo!()
     }
 
@@ -276,6 +282,7 @@ where
             }
             _ => panic!("value should be union variant"),
         },
+        Type::Ptr(p) => v.visit_ptr(p, val.as_str().expect("value should be pointer")),
         Type::Symbolic(sym) => v.visit_symbolic(sym, val.as_str().expect("value should be symbol")),
         Type::Generic(gen) => v.visit_generic(gen, val.as_str().expect("value should be generic")),
     }
@@ -306,6 +313,7 @@ pub trait TypeVisitor {
     fn visit_optional(&mut self, _opt: &Optional) {}
     fn visit_union_variant_string(&mut self, _var: &UnionVariant) {}
     fn visit_union_variant_fields(&mut self, _var: &UnionVariant) {}
+    fn visit_ptr(&mut self, _p: &Ptr) {}
     fn visit_symbolic(&mut self, _sym: &Symbolic) {}
     fn visit_generic(&mut self, _gen: &Generic) {}
 }
@@ -374,6 +382,10 @@ pub fn walk_type<V: TypeVisitor>(v: &mut V, t: &Type) {
                     None => v.visit_union_variant_string(variant),
                 }
             }
+        }
+        Type::Ptr(p) => {
+            v.visit_ptr(p);
+            walk_type(v, &p.t)
         }
         Type::Symbolic(sym) => v.visit_symbolic(sym),
         Type::Generic(gen) => v.visit_generic(gen),
