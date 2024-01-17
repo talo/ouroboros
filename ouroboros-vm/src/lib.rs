@@ -414,7 +414,7 @@ mod test {
     use crate::{Call, Deploy, Func, VMEvent, VM};
 
     #[tokio::test]
-    async fn test() -> anyhow::Result<()> {
+    async fn test_map() -> anyhow::Result<()> {
         tracing_subscriber::registry()
             .with(EnvFilter::new(env::var("TRACE").unwrap_or_default()))
             .with(tracing_subscriber::fmt::layer())
@@ -462,6 +462,100 @@ mod test {
             .send(VMEvent::Call(Call {
                 name: "map".to_string(),
                 args: map_args_json,
+                responder,
+            }))
+            .await?;
+
+        let resp = response.await?;
+        println!("$ external_call: ret={:?}", resp);
+
+        vm_run_handle.await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_compose() -> anyhow::Result<()> {
+        tracing_subscriber::registry()
+            .with(EnvFilter::new(env::var("TRACE").unwrap_or_default()))
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+
+        let (vm, vm_sender) = VM::new();
+
+        let vm_run_handle = tokio::spawn(async { vm.run().await });
+
+        vm_sender
+            .send(VMEvent::Deploy(Deploy {
+                func: Func {
+                    name: "compose".to_string(),
+                    entrypoint: "__entrypoint__compose".to_string(),
+                    code: include_bytes!(
+                        "../../target/wasm32-unknown-unknown/debug/ouroboros_vm_prelude.wasm"
+                    )
+                    .to_vec(),
+                },
+            }))
+            .await?;
+
+        vm_sender
+            .send(VMEvent::Deploy(Deploy {
+                func: Func {
+                    name: "mul_u32".to_string(),
+                    entrypoint: "__entrypoint__mul_u32".to_string(),
+                    code: include_bytes!(
+                        "../../target/wasm32-unknown-unknown/debug/ouroboros_vm_prelude.wasm"
+                    )
+                    .to_vec(),
+                },
+            }))
+            .await?;
+
+        vm_sender
+            .send(VMEvent::Deploy(Deploy {
+                func: Func {
+                    name: "map".to_string(),
+                    entrypoint: "__entrypoint__map".to_string(),
+                    code: include_bytes!(
+                        "../../target/wasm32-unknown-unknown/debug/ouroboros_vm_prelude.wasm"
+                    )
+                    .to_vec(),
+                },
+            }))
+            .await?;
+
+        vm_sender
+            .send(VMEvent::Deploy(Deploy {
+                func: Func {
+                    name: "take".to_string(),
+                    entrypoint: "__entrypoint__take".to_string(),
+                    code: include_bytes!(
+                        "../../target/wasm32-unknown-unknown/debug/ouroboros_vm_prelude.wasm"
+                    )
+                    .to_vec(),
+                },
+            }))
+            .await?;
+
+        let compose_args = (
+            Lambda::<B, B>::with_captured_args("take", vec![serde_json::json!(3u32)]),
+            Lambda::<A, B>::with_captured_args(
+                "map",
+                vec![serde_json::json!(Lambda::<u32, u32>::with_captured_args(
+                    "mul_u32",
+                    vec![serde_json::json!(2u32)],
+                ))],
+            ),
+            vec![A::new(&1u32), A::new(&2u32), A::new(&3u32), A::new(&4u32)],
+        );
+        let compose_args_json = serde_json::to_value(&compose_args).expect("invalid json");
+
+        println!("$ external_call: compose");
+        let (responder, response) = tokio::sync::oneshot::channel();
+        vm_sender
+            .send(VMEvent::Call(Call {
+                name: "compose".to_string(),
+                args: compose_args_json,
                 responder,
             }))
             .await?;
