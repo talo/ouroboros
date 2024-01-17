@@ -17,6 +17,19 @@ pub struct TypeName {
     pub g: Vec<TypeName>,
 }
 
+impl TypeName {
+    pub fn new(n: &'static str) -> Self {
+        Self { n, g: vec![] }
+    }
+
+    pub fn with_generics(n: &'static str, generics: impl Into<Vec<TypeName>>) -> Self {
+        Self {
+            n,
+            g: generics.into(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     // Basic types
