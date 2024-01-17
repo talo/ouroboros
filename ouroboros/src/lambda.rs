@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Func, Type, TypeInfo};
+use crate::{Func, Type, TypeInfo, TypeName};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Lambda<A, B> {
@@ -73,8 +73,11 @@ where
     A: TypeInfo,
     B: TypeInfo,
 {
-    fn tname() -> String {
-        format!("({} -> {})", A::tname(), B::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "λ",
+            g: vec![A::tname(), B::tname()],
+        }
     }
 
     fn t() -> Type {

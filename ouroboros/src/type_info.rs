@@ -7,8 +7,14 @@ use crate::{
 };
 
 pub trait TypeInfo {
-    fn tname() -> String;
+    fn tname() -> TypeName;
     fn t() -> Type;
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypeName {
+    pub n: &'static str,
+    pub g: Vec<TypeName>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -130,8 +136,11 @@ impl From<Generic> for Type {
 }
 
 impl TypeInfo for bool {
-    fn tname() -> String {
-        "bool".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "bool",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -140,8 +149,11 @@ impl TypeInfo for bool {
 }
 
 impl TypeInfo for i8 {
-    fn tname() -> String {
-        "int8".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "int8",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -150,8 +162,11 @@ impl TypeInfo for i8 {
 }
 
 impl TypeInfo for i16 {
-    fn tname() -> String {
-        "int16".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "int16",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -160,8 +175,11 @@ impl TypeInfo for i16 {
 }
 
 impl TypeInfo for i32 {
-    fn tname() -> String {
-        "int32".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "int32",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -170,8 +188,11 @@ impl TypeInfo for i32 {
 }
 
 impl TypeInfo for i64 {
-    fn tname() -> String {
-        "int64".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "int64",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -180,8 +201,11 @@ impl TypeInfo for i64 {
 }
 
 impl TypeInfo for i128 {
-    fn tname() -> String {
-        "int128".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "int128",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -190,8 +214,11 @@ impl TypeInfo for i128 {
 }
 
 impl TypeInfo for u8 {
-    fn tname() -> String {
-        "uint8".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "uint8",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -200,8 +227,11 @@ impl TypeInfo for u8 {
 }
 
 impl TypeInfo for u16 {
-    fn tname() -> String {
-        "uint16".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "uint16",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -210,8 +240,11 @@ impl TypeInfo for u16 {
 }
 
 impl TypeInfo for u32 {
-    fn tname() -> String {
-        "uint32".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "uint32",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -220,8 +253,11 @@ impl TypeInfo for u32 {
 }
 
 impl TypeInfo for u64 {
-    fn tname() -> String {
-        "uint64".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "uint64",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -230,8 +266,11 @@ impl TypeInfo for u64 {
 }
 
 impl TypeInfo for u128 {
-    fn tname() -> String {
-        "uint128".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "uint128",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -240,8 +279,11 @@ impl TypeInfo for u128 {
 }
 
 impl TypeInfo for f32 {
-    fn tname() -> String {
-        "float32".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "float32",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -250,8 +292,11 @@ impl TypeInfo for f32 {
 }
 
 impl TypeInfo for f64 {
-    fn tname() -> String {
-        "float64".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "float64",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -260,8 +305,11 @@ impl TypeInfo for f64 {
 }
 
 impl TypeInfo for String {
-    fn tname() -> String {
-        "string".to_string()
+    fn tname() -> TypeName {
+        TypeName {
+            n: "string",
+            g: vec![],
+        }
     }
 
     fn t() -> Type {
@@ -270,8 +318,11 @@ impl TypeInfo for String {
 }
 
 impl<T: TypeInfo> TypeInfo for Vec<T> {
-    fn tname() -> String {
-        format!("[{}]", T::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "array",
+            g: vec![T::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -280,8 +331,11 @@ impl<T: TypeInfo> TypeInfo for Vec<T> {
 }
 
 impl<T: TypeInfo> TypeInfo for [T] {
-    fn tname() -> String {
-        format!("[{}]", T::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "array",
+            g: vec![T::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -290,8 +344,11 @@ impl<T: TypeInfo> TypeInfo for [T] {
 }
 
 impl<T0: TypeInfo> TypeInfo for (T0,) {
-    fn tname() -> String {
-        format!("({},)", T0::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "tuple",
+            g: vec![T0::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -300,8 +357,11 @@ impl<T0: TypeInfo> TypeInfo for (T0,) {
 }
 
 impl<T0: TypeInfo, T1: TypeInfo> TypeInfo for (T0, T1) {
-    fn tname() -> String {
-        format!("({}, {})", T0::tname(), T1::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "tuple",
+            g: vec![T0::tname(), T1::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -313,8 +373,11 @@ impl<T0: TypeInfo, T1: TypeInfo> TypeInfo for (T0, T1) {
 }
 
 impl<T0: TypeInfo, T1: TypeInfo, T2: TypeInfo> TypeInfo for (T0, T1, T2) {
-    fn tname() -> String {
-        format!("({}, {}, {})", T0::tname(), T1::tname(), T2::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "tuple",
+            g: vec![T0::tname(), T1::tname(), T2::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -327,14 +390,11 @@ impl<T0: TypeInfo, T1: TypeInfo, T2: TypeInfo> TypeInfo for (T0, T1, T2) {
 }
 
 impl<T0: TypeInfo, T1: TypeInfo, T2: TypeInfo, T3: TypeInfo> TypeInfo for (T0, T1, T2, T3) {
-    fn tname() -> String {
-        format!(
-            "({}, {}, {}, {})",
-            T0::tname(),
-            T1::tname(),
-            T2::tname(),
-            T3::tname()
-        )
+    fn tname() -> TypeName {
+        TypeName {
+            n: "tuple",
+            g: vec![T0::tname(), T1::tname(), T2::tname(), T3::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -348,8 +408,11 @@ impl<T0: TypeInfo, T1: TypeInfo, T2: TypeInfo, T3: TypeInfo> TypeInfo for (T0, T
 }
 
 impl<T: TypeInfo> TypeInfo for Option<T> {
-    fn tname() -> String {
-        format!("{}?", T::tname())
+    fn tname() -> TypeName {
+        TypeName {
+            n: "optional",
+            g: vec![T::tname()],
+        }
     }
 
     fn t() -> Type {
@@ -358,7 +421,7 @@ impl<T: TypeInfo> TypeInfo for Option<T> {
 }
 
 impl<T: TypeInfo> TypeInfo for Box<T> {
-    fn tname() -> String {
+    fn tname() -> TypeName {
         T::tname()
     }
 
@@ -368,7 +431,7 @@ impl<T: TypeInfo> TypeInfo for Box<T> {
 }
 
 impl<T: TypeInfo> TypeInfo for &T {
-    fn tname() -> String {
+    fn tname() -> TypeName {
         T::tname()
     }
 

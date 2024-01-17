@@ -90,10 +90,22 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let generic_type_names = generics
+        .params
+        .iter()
+        .map(|param| match param {
+            syn::GenericParam::Type(type_param) => {
+                let ident = &type_param.ident;
+                quote! { #ident::tname() }
+            }
+            _ => panic!("Generic type parameters are the only supported generics"),
+        })
+        .collect::<Vec<_>>();
+
     let expanded = quote! {
         impl  #impl_generics ::ouroboros::TypeInfo for #name #ty_generics #where_clause {
-            fn tname() -> ::std::string::String {
-                #name_as_str.to_string()
+            fn tname() -> ::ouroboros::TypeName {
+                ::ouroboros::TypeName { n: #name_as_str, g: vec![#(#generic_type_names,)*] }
             }
 
             fn t() -> ::ouroboros::Type {

@@ -1,4 +1,4 @@
-use ouroboros::{transpile::cpp::TypedefVisitor, Tuple, UnnamedField};
+use ouroboros::{transpile::cpp::TypedefVisitor, Tuple, TypeName, UnnamedField};
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
 
@@ -19,6 +19,10 @@ struct Foo {
 
 #[allow(dead_code)]
 #[derive(Clone, Debug, TypeInfo)]
+struct Gen<T: TypeInfo>(T);
+
+#[allow(dead_code)]
+#[derive(Clone, Debug, TypeInfo)]
 enum Bar {
     X,
     Y,
@@ -34,13 +38,25 @@ enum Baz {
 
 #[test]
 fn test_unit_record() {
-    assert_eq!(Unit::tname(), "Unit");
+    assert_eq!(
+        Unit::tname(),
+        TypeName {
+            n: "Unit",
+            g: vec![]
+        }
+    );
     assert_eq!(Unit::t(), Type::Record(Record::new_unit("Unit")));
 }
 
 #[test]
 fn test_tuple() {
-    assert_eq!(Unnamed::tname(), "Unnamed");
+    assert_eq!(
+        Unnamed::tname(),
+        TypeName {
+            n: "Unnamed",
+            g: vec![]
+        }
+    );
     assert_eq!(
         Unnamed::t(),
         Type::Tuple(Tuple::new(
@@ -51,7 +67,13 @@ fn test_tuple() {
 
 #[test]
 fn test_record() {
-    assert_eq!(Foo::tname(), "Foo");
+    assert_eq!(
+        Foo::tname(),
+        TypeName {
+            n: "Foo",
+            g: vec![]
+        }
+    );
     assert_eq!(
         Foo::t(),
         Type::Record(Record::new(
@@ -66,8 +88,29 @@ fn test_record() {
 }
 
 #[test]
+fn test_generic_record() {
+    assert_eq!(
+        Gen::<Foo>::tname(),
+        TypeName {
+            n: "Gen",
+            g: vec![Foo::tname()]
+        }
+    );
+    assert_eq!(
+        Gen::<Foo>::t(),
+        Type::Tuple(Tuple::new([Foo::t()].map(UnnamedField::new)))
+    );
+}
+
+#[test]
 fn test_enum() {
-    assert_eq!(Bar::tname(), "Bar");
+    assert_eq!(
+        Bar::tname(),
+        TypeName {
+            n: "Bar",
+            g: vec![]
+        }
+    );
     assert_eq!(
         Bar::t(),
         Type::Enum(Enum::new(
@@ -79,7 +122,13 @@ fn test_enum() {
 
 #[test]
 fn test_union() {
-    assert_eq!(Baz::tname(), "Baz");
+    assert_eq!(
+        Baz::tname(),
+        TypeName {
+            n: "Baz",
+            g: vec![]
+        }
+    );
     assert_eq!(
         Baz::t(),
         Type::Union(Union::new(

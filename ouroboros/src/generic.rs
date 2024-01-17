@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Type, TypeInfo};
+use crate::{Type, TypeInfo, TypeName};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Generic {
@@ -35,8 +35,11 @@ macro_rules! generic {
         }
 
         impl TypeInfo for $id {
-            fn tname() -> String {
-                stringify!($id).to_string()
+            fn tname() -> TypeName {
+                TypeName {
+                    n: stringify!($id),
+                    g: vec![],
+                }
             }
 
             fn t() -> Type {
