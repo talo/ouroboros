@@ -11,8 +11,7 @@ pub enum ErrorCode {
     Success = 0,
     InvalidJson = 1,
     InvalidUtf8 = 2,
-    MemoryIndexOutOfBounds = 3,
-    MemoryRangeOutOfBounds = 4,
+    MemoryOutOfBounds = 3,
     Internal = 255,
 }
 

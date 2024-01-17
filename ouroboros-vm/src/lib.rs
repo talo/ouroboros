@@ -12,6 +12,7 @@ pub enum VMEvent {
     Empty,
     Call(Call),
     Deploy(Deploy),
+    Shutdown,
 }
 
 pub struct Call {
@@ -58,6 +59,9 @@ impl VM {
                 VMEvent::Empty => {}
                 VMEvent::Call(call_fn) => self.call_fn(call_fn).await,
                 VMEvent::Deploy(deploy_fn) => self.deploy_fn(deploy_fn).await,
+                VMEvent::Shutdown => {
+                    break;
+                }
             }
         }
     }
@@ -113,8 +117,8 @@ impl VM {
                       lambda_size: i32,
                       args_ptr: i32,
                       args_size: i32,
-                      out_result: i32,
-                      out_result_size: i32,
+                      out_ret: i32,
+                      out_ret_size: i32,
                       out_err_code: i32| {
                     println!("> __ouroboros__call_fn");
 
@@ -129,67 +133,50 @@ impl VM {
                         .expect("wasm memory is not memory");
 
                     Box::new(async move {
-                        // Memory checks
-                        let data = memory.data_mut(&mut caller);
-
-                        if out_err_code as usize + 4 > data.len() {
-                            // If the err code pointer is out of bounds, then we
-                            // cannot report errs so we do the only thing we
-                            // can: fail silently
-                            return;
-                        }
-
-                        if lambda_ptr as usize + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryIndexOutOfBounds as i32,
-                            );
-                            return;
-                        }
-                        if (lambda_ptr + lambda_size) as usize + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryRangeOutOfBounds as i32,
-                            );
-                            return;
-                        }
-
-                        if args_ptr as usize + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryIndexOutOfBounds as i32,
-                            );
-                            return;
-                        }
-                        if (args_ptr + args_size) as usize + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryIndexOutOfBounds as i32,
-                            );
-                            return;
-                        }
-
-                        // This is where we will store the result pointer
-                        if out_result as usize + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryIndexOutOfBounds as i32,
-                            );
-                            return;
-                        }
-                        // This is where we will store the result size
-                        if out_result_size as usize + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryIndexOutOfBounds as i32,
-                            );
-                            return;
+                        { // Check the memory bounds of all pointers
+                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), lambda_ptr, lambda_size) {
+                                tracing::debug!("lambda pointer is out of bounds");
+                                Self::write_err_code_to_memory(
+                                    memory.data_mut(&mut caller),
+                                    out_err_code,
+                                    ErrorCode::MemoryOutOfBounds as i32,
+                                );
+                                return;
+                            }
+                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), args_ptr, args_size) {
+                                tracing::debug!("args pointer is out of bounds");
+                                Self::write_err_code_to_memory(
+                                    memory.data_mut(&mut caller),
+                                    out_err_code,
+                                    ErrorCode::MemoryOutOfBounds as i32,
+                                );
+                                return;
+                            }
+                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), out_ret, 4) {
+                                tracing::debug!("return pointer is out of bounds");
+                                Self::write_err_code_to_memory(
+                                    memory.data_mut(&mut caller),
+                                    out_err_code,
+                                    ErrorCode::MemoryOutOfBounds as i32,
+                                );
+                                return;
+                            }
+                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), out_ret_size, 4) {
+                                tracing::debug!("return pointer is out of bounds");
+                                Self::write_err_code_to_memory(
+                                    memory.data_mut(&mut caller),
+                                    out_err_code,
+                                    ErrorCode::MemoryOutOfBounds as i32,
+                                );
+                                return;
+                            }
+                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), out_err_code, 4) {
+                                // If the err code pointer is out of bounds, then we
+                                // cannot report errs so we do the only thing we
+                                // can: fail silently
+                                tracing::debug!("error code pointer is out of bounds");
+                                return;
+                            }
                         }
 
                         // Parse arguments, call the function, and process the response
@@ -318,41 +305,24 @@ impl VM {
                         };
                         let ret_json_size = ret_json.len();
 
-                        let alloc = caller
-                            .get_export("__ouroboros__alloc")
-                            .expect("alloc is unavailable")
-                            .into_func()
-                            .expect("alloc is not a func");
+                        let ret_ptr = match Self::alloc_mem(&mut caller, ret_json_size as i32).await {
+                            Some(ret_ptr) => ret_ptr,
+                            None => {
+                                Self::write_err_code_to_memory(
+                                    memory.data_mut(&mut caller),
+                                    out_err_code,
+                                    ErrorCode::MemoryOutOfBounds as i32,
+                                );
+                                return;
+                            }
+                        };
 
-                        let mut ret_ptr = [Val::I32(0)];
-                        alloc
-                            .call_async(
-                                &mut caller,
-                                &[Val::I32(ret_json_size as i32)],
-                                &mut ret_ptr,
-                            )
-                            .await
-                            .expect("async call failed");
-                        let ret_ptr = ret_ptr[0].unwrap_i32();
-
-                        let data = &mut memory.data_mut(&mut caller);
-
-                        // Check that the allocated memory is sufficiently sized to
-                        // hold the result
-                        if ret_ptr as usize + ret_json_size + 4 > data.len() {
-                            Self::write_err_code_to_memory(
-                                data,
-                                out_err_code,
-                                ErrorCode::MemoryIndexOutOfBounds as i32,
-                            );
-                            return;
-                        }
-
+                        let data = memory.data_mut(&mut caller);
                         data[ret_ptr as usize..ret_ptr as usize + ret_json_size]
                             .copy_from_slice(ret_json.as_slice());
-                        data[out_result as usize..out_result as usize + 4]
+                        data[out_ret as usize..out_ret as usize + 4]
                             .copy_from_slice(&ret_ptr.to_le_bytes());
-                        data[out_result_size as usize..out_result_size as usize + 4]
+                        data[out_ret_size as usize..out_ret_size as usize + 4]
                             .copy_from_slice(&(ret_json_size as i32).to_le_bytes());
                     })
                 },
@@ -396,10 +366,45 @@ impl VM {
         Ok(ret)
     }
 
-    fn write_err_code_to_memory(data: &mut [u8], index: i32, err_code: i32) {
+    /// Writes an `ErrCode` to a slice of data. This slice of data is assumed to
+    /// represent the linear memory of a WASM module.
+    fn write_err_code_to_memory(mem: &mut [u8], index: i32, err_code: i32) {
         tracing::debug!("`__ouroboros__call_fn` error code: {}", err_code);
 
-        data[index as usize..(index + 4) as usize].copy_from_slice(&err_code.to_le_bytes());
+        mem[index as usize..index as usize + 4].copy_from_slice(&err_code.to_le_bytes());
+    }
+
+    /// Check the memory bounds of a slice of data. This slice of data is
+    /// assumed to represent the linear memory of a WASM module. Returns true if
+    /// the memory bounds are valid.
+    fn is_ptr_valid(mem: &[u8], ptr: i32, size: i32) -> bool {
+        (ptr as usize) < mem.len() && (ptr + size) as usize <= mem.len()
+    }
+
+    async fn alloc_mem<T>(mut caller: &mut Caller<'_, T>, size: i32) -> Option<i32>
+    where
+        T: Send,
+    {
+        let memory = caller
+            .get_export("memory")
+            .expect("memory must be unavailable")
+            .into_memory()
+            .expect("memory must be memory");
+
+        let alloc = caller
+            .get_export("__ouroboros__alloc")
+            .expect("alloc must be unavailable")
+            .into_func()
+            .expect("alloc must be a function");
+
+        let mut ptr = [Val::I32(0)];
+        alloc
+            .call_async(&mut caller, &[Val::I32(size as i32)], &mut ptr)
+            .await
+            .expect("async call failed");
+        let ptr = ptr[0].unwrap_i32();
+
+        Self::is_ptr_valid(&memory.data(caller), ptr, size).then(|| ptr)
     }
 }
 
@@ -415,11 +420,6 @@ mod test {
 
     #[tokio::test]
     async fn test_map() -> anyhow::Result<()> {
-        tracing_subscriber::registry()
-            .with(EnvFilter::new(env::var("TRACE").unwrap_or_default()))
-            .with(tracing_subscriber::fmt::layer())
-            .init();
-
         let (vm, vm_sender) = VM::new();
 
         let vm_run_handle = tokio::spawn(async { vm.run().await });
@@ -469,6 +469,7 @@ mod test {
         let resp = response.await?;
         println!("$ external_call: ret={:?}", resp);
 
+        vm_sender.send(VMEvent::Shutdown).await?;
         vm_run_handle.await?;
 
         Ok(())
@@ -476,11 +477,6 @@ mod test {
 
     #[tokio::test]
     async fn test_compose() -> anyhow::Result<()> {
-        tracing_subscriber::registry()
-            .with(EnvFilter::new(env::var("TRACE").unwrap_or_default()))
-            .with(tracing_subscriber::fmt::layer())
-            .init();
-
         let (vm, vm_sender) = VM::new();
 
         let vm_run_handle = tokio::spawn(async { vm.run().await });
@@ -563,6 +559,7 @@ mod test {
         let resp = response.await?;
         println!("$ external_call: ret={:?}", resp);
 
+        vm_sender.send(VMEvent::Shutdown).await?;
         vm_run_handle.await?;
 
         Ok(())
