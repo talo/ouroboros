@@ -289,36 +289,129 @@ where
 }
 
 pub trait TypeVisitor {
-    fn visit_bool(&mut self) {}
-    fn visit_u8(&mut self) {}
-    fn visit_u16(&mut self) {}
-    fn visit_u32(&mut self) {}
-    fn visit_u64(&mut self) {}
-    fn visit_u128(&mut self) {}
-    fn visit_i8(&mut self) {}
-    fn visit_i16(&mut self) {}
-    fn visit_i32(&mut self) {}
-    fn visit_i64(&mut self) {}
-    fn visit_i128(&mut self) {}
-    fn visit_f32(&mut self) {}
-    fn visit_f64(&mut self) {}
-    fn visit_string(&mut self) {}
-    fn visit_array(&mut self, _arr: &Array) {}
-    fn visit_func(&mut self, _func: &Func) {}
-    fn visit_record_with_named_fields(&mut self, _rec: &Record) {}
-    fn visit_record_with_unnamed_fields(&mut self, _rec: &Record) {}
-    fn visit_tuple(&mut self, _tup: &Tuple) {}
-    fn visit_enum_variant_string(&mut self, _enm: &Enum, _var: &EnumVariant) {}
-    fn visit_enum_variant_const_value(&mut self, _enm: &Enum, _var: &EnumVariant) {}
-    fn visit_optional(&mut self, _opt: &Optional) {}
-    fn visit_union_variant_string(&mut self, _var: &UnionVariant) {}
-    fn visit_union_variant_fields(&mut self, _var: &UnionVariant) {}
-    fn visit_ptr(&mut self, _p: &Ptr) {}
-    fn visit_symbolic(&mut self, _sym: &Symbolic) {}
-    fn visit_generic(&mut self, _gen: &Generic) {}
+    type Error;
+
+    fn visit_bool(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u8(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u16(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u32(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u64(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_u128(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i8(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i16(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i32(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i64(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_i128(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_f32(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_f64(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_string(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_array(&mut self, _arr: &Array) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_func(&mut self, _func: &Func) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_record_with_named_fields(&mut self, _rec: &Record) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_record_with_unnamed_fields(&mut self, _rec: &Record) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_tuple(&mut self, _tup: &Tuple) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_enum_variant_string(
+        &mut self,
+        _enm: &Enum,
+        _var: &EnumVariant,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_enum_variant_const_value(
+        &mut self,
+        _enm: &Enum,
+        _var: &EnumVariant,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_optional(&mut self, _opt: &Optional) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_union_variant_string(&mut self, _var: &UnionVariant) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_union_variant_fields(&mut self, _var: &UnionVariant) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_ptr(&mut self, _p: &Ptr) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_symbolic(&mut self, _sym: &Symbolic) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_generic(&mut self, _gen: &Generic) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
-pub fn walk_type<V: TypeVisitor>(v: &mut V, t: &Type) {
+pub fn walk_type<V>(v: &mut V, t: &Type) -> Result<(), V::Error>
+where
+    V: TypeVisitor,
+{
     match t {
         Type::Bool => v.visit_bool(),
         Type::U8 => v.visit_u8(),
@@ -335,56 +428,61 @@ pub fn walk_type<V: TypeVisitor>(v: &mut V, t: &Type) {
         Type::F64 => v.visit_f64(),
         Type::String => v.visit_string(),
         Type::Array(arr) => {
-            v.visit_array(arr);
+            v.visit_array(arr)?;
             walk_type(v, &arr.t)
         }
         Type::Func(func) => {
-            v.visit_func(func);
-            walk_type(v, &func.a);
+            v.visit_func(func)?;
+            walk_type(v, &func.a)?;
             walk_type(v, &func.b)
         }
         Type::Record(rec) => match &rec.fields {
             Fields::Named(fields) => {
-                v.visit_record_with_named_fields(rec);
+                v.visit_record_with_named_fields(rec)?;
                 for field in fields {
-                    walk_type(v, &field.t)
+                    walk_type(v, &field.t)?;
                 }
+                Ok(())
             }
             Fields::Unnamed(fields) => {
-                v.visit_record_with_unnamed_fields(rec);
+                v.visit_record_with_unnamed_fields(rec)?;
                 for field in fields {
-                    walk_type(v, &field.t)
+                    walk_type(v, &field.t)?;
                 }
+                Ok(())
             }
         },
         Type::Tuple(tup) => {
-            v.visit_tuple(tup);
+            v.visit_tuple(tup)?;
             for field in &tup.fields {
-                walk_type(v, &field.t)
+                walk_type(v, &field.t)?;
             }
+            Ok(())
         }
         Type::Enum(enm) => {
             for variant in &enm.variants {
                 match variant.v {
-                    Some(_) => v.visit_enum_variant_const_value(enm, variant),
-                    None => v.visit_enum_variant_string(enm, variant),
-                }
+                    Some(_) => v.visit_enum_variant_const_value(enm, variant)?,
+                    None => v.visit_enum_variant_string(enm, variant)?,
+                };
             }
+            Ok(())
         }
         Type::Optional(opt) => {
-            v.visit_optional(opt);
+            v.visit_optional(opt)?;
             walk_type(v, &opt.t)
         }
         Type::Union(union) => {
             for variant in &union.variants {
                 match &variant.fields {
-                    Some(_) => v.visit_union_variant_fields(variant),
-                    None => v.visit_union_variant_string(variant),
-                }
+                    Some(_) => v.visit_union_variant_fields(variant)?,
+                    None => v.visit_union_variant_string(variant)?,
+                };
             }
+            Ok(())
         }
         Type::Ptr(p) => {
-            v.visit_ptr(p);
+            v.visit_ptr(p)?;
             walk_type(v, &p.t)
         }
         Type::Symbolic(sym) => v.visit_symbolic(sym),
