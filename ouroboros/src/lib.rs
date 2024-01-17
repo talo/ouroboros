@@ -1,5 +1,6 @@
 pub use ouroboros_proc_macro::*;
 
+pub use features::*;
 pub use field::*;
 pub use generic::*;
 pub use lambda::*;

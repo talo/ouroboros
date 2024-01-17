@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{
     field::UnnamedField,
     product::{Array, Record, Tuple},
@@ -478,5 +480,35 @@ impl<T: TypeInfo> TypeInfo for &T {
 
     fn t() -> Type {
         T::t()
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bool => "bool".fmt(f),
+            Self::I8 => "i8".fmt(f),
+            Self::I16 => "i16".fmt(f),
+            Self::I32 => "i32".fmt(f),
+            Self::I64 => "i64".fmt(f),
+            Self::I128 => "i128".fmt(f),
+            Self::U8 => "u8".fmt(f),
+            Self::U16 => "u16".fmt(f),
+            Self::U32 => "u32".fmt(f),
+            Self::U64 => "u64".fmt(f),
+            Self::U128 => "u128".fmt(f),
+            Self::F32 => "f32".fmt(f),
+            Self::F64 => "f64".fmt(f),
+            Self::String => "string".fmt(f),
+            Self::Array(arr) => arr.fmt(f),
+            Self::Func(func) => func.fmt(f),
+            Self::Record(rec) => rec.fmt(f),
+            Self::Tuple(tup) => tup.fmt(f),
+            Self::Enum(enm) => enm.fmt(f),
+            Self::Optional(opt) => opt.fmt(f),
+            Self::Union(union) => union.fmt(f),
+            Self::Symbolic(sym) => sym.fmt(f),
+            Self::Generic(gen) => gen.fmt(f),
+        }
     }
 }

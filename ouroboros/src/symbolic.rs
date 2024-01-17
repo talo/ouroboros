@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Symbolic {
     pub doc: Option<String>,
@@ -18,5 +20,12 @@ impl Symbolic {
                 .as_str()
                 .map(|s| s.starts_with('$') && (s[1..] == self.n))
                 .unwrap_or(false)
+    }
+}
+
+impl Display for Symbolic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        "$".fmt(f)?;
+        self.n.fmt(f)
     }
 }

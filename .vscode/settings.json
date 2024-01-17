@@ -64,5 +64,6 @@
     },
     "rust-analyzer.linkedProjects": [
         "./ouroboros-vm/Cargo.toml"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }

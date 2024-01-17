@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::type_info::Type;
 
@@ -19,6 +22,14 @@ impl NamedField {
     }
 }
 
+impl Display for NamedField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.n.fmt(f)?;
+        ": ".fmt(f)?;
+        self.t.fmt(f)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnnamedField {
     pub doc: Option<String>,
@@ -28,6 +39,12 @@ pub struct UnnamedField {
 impl UnnamedField {
     pub fn new(t: Type) -> Self {
         Self { doc: None, t }
+    }
+}
+
+impl Display for UnnamedField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.t.fmt(f)
     }
 }
 
@@ -140,5 +157,30 @@ impl<const N: usize> From<[(&'static str, Type); N]> for Fields {
                 .map(|(n, t)| NamedField::new(n, t))
                 .collect(),
         )
+    }
+}
+
+impl Display for Fields {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        "{".fmt(f)?;
+        match self {
+            Self::Named(fields) => {
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 {
+                        ", ".fmt(f)?;
+                    }
+                    field.fmt(f)?;
+                }
+            }
+            Self::Unnamed(fields) => {
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 {
+                        ", ".fmt(f)?;
+                    }
+                    field.fmt(f)?;
+                }
+            }
+        }
+        "}".fmt(f)
     }
 }

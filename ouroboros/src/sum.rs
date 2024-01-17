@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::{Display, self, Formatter}};
 
 use crate::{field::Fields, type_info::Type};
 
@@ -30,6 +30,24 @@ impl Enum {
                 && value.as_u64().map(|v| self.variants.iter().any(|variant| 
                     variant.v.map(|u| u == v as u8).unwrap_or(false)
                 )).unwrap_or(false))
+    }
+}
+
+impl Display for Enum {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.n.fmt(f)?;
+        "[".fmt(f)?;
+        for (i, variant) in self.variants.iter().enumerate() {
+            if i > 0 {
+                " | ".fmt(f)?;
+            }
+            variant.n.fmt(f)?;
+            if let Some(v) = variant.v {
+                " = ".fmt(f)?;
+                v.fmt(f)?;
+            }
+        }
+        "]".fmt(f)
     }
 }
 
@@ -71,6 +89,13 @@ impl Optional {
 
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         value.is_null() || self.t.is_compat(value)
+    }
+}
+
+impl Display for Optional {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.t.fmt(f)?;
+        "?".fmt(f)
     }
 }
 
@@ -131,6 +156,23 @@ impl PartialEq for Union {
 }
 
 impl Eq for Union {}
+
+impl Display for Union {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.n.fmt(f)?;
+        "{".fmt(f)?;
+        for (i, variant) in self.variants.iter().enumerate() {
+            if i > 0 {
+                " | ".fmt(f)?;
+            }
+            variant.n.fmt(f)?;
+            if let Some(fields) = &variant.fields {
+                fields.fmt(f)?;
+            }
+        }
+        "}".fmt(f)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnionVariant {

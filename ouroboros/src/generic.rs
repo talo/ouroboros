@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Type, TypeInfo, TypeName};
@@ -17,6 +19,13 @@ impl Generic {
         // a generic is resolved, it is no longer compatible with anything. This
         // check needs to be done at a higher-level.
         true
+    }
+}
+
+impl Display for Generic {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        "^".fmt(f)?;
+        self.n.fmt(f)
     }
 }
 

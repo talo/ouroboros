@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{
     field::{Fields, UnnamedField},
     type_info::Type,
@@ -26,6 +28,14 @@ impl Array {
     }
 }
 
+impl Display for Array {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        "[".fmt(f)?;
+        self.t.fmt(f)?;
+        "]".fmt(f)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Func {
     pub doc: Option<String>,
@@ -48,6 +58,14 @@ impl Func {
             .and_then(|object| object.get("λ"))
             .map(|n| n.is_string())
             .unwrap_or(false)
+    }
+}
+
+impl Display for Func {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.a.fmt(f)?;
+        " -> ".fmt(f)?;
+        self.b.fmt(f)
     }
 }
 
@@ -80,6 +98,13 @@ impl Record {
     }
 }
 
+impl Display for Record {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.n.fmt(f)?;
+        self.fields.fmt(f)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tuple {
     pub doc: Option<String>,
@@ -107,5 +132,18 @@ impl Tuple {
                             .all(|(i, f)| arr.get(i).map(|v| f.t.is_compat(v)).unwrap_or(false))
                 })
                 .unwrap_or(false)
+    }
+}
+
+impl Display for Tuple {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        "(".fmt(f)?;
+        for (i, field) in self.fields.iter().enumerate() {
+            if i > 0 {
+                ", ".fmt(f)?;
+            }
+            field.t.fmt(f)?;
+        }
+        ")".fmt(f)
     }
 }
