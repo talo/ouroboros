@@ -5,6 +5,7 @@ version.workspace = true
 
 [dependencies]
 anyhow = { version = "1.0.75" }
+async-trait = { version = "0.1.77" }
 ouroboros = { path = "../ouroboros" }
 ouroboros-wasm = { path = "../ouroboros-wasm" }
 serde = { version = "1.0" }

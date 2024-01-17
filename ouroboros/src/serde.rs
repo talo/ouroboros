@@ -293,14 +293,14 @@ pub mod de {
         Map(HashMap<String, SuspendedType>),
     }
 
-    impl<E> Into<Result<Type, E>> for SuspendedType
+    impl<E> From<SuspendedType> for Result<Type, E>
     where
         E: de::Error,
     {
-        fn into(self) -> Result<Type, E> {
-            match self {
+        fn from(suspended_type: SuspendedType) -> Self {
+            match suspended_type {
                 // Basic and symbolic kinds
-                Self::Str(s) => match s.as_str() {
+                SuspendedType::Str(s) => match s.as_str() {
                     // Basic kinds
                     "bool" => Ok(Type::Bool),
                     "u8" => Ok(Type::U8),
@@ -318,14 +318,14 @@ pub mod de {
                     "string" => Ok(Type::String),
 
                     // Symbolic kinds
-                    sym if sym.starts_with("$") => Ok(Type::from(Symbolic::new(&sym[1..]))),
+                    sym if sym.starts_with('$') => Ok(Type::from(Symbolic::new(&sym[1..]))),
 
                     // Invalid kinds
-                    k => return Err(E::custom(format!("unexpected kind `{k}`"))),
+                    k => Err(E::custom(format!("unexpected kind `{k}`"))),
                 },
 
                 // Maps
-                Self::Map(map) => {
+                SuspendedType::Map(map) => {
                     // Kind spec
                     let k = map.get("k").ok_or(de::Error::custom("expected `k`"))?;
                     // Type spec
@@ -378,7 +378,7 @@ pub mod de {
                             "record" => {
                                 let fields = match t {
                                     SuspendedType::Seq(seq) => Fields::Unnamed(
-                                        seq.into_iter()
+                                        seq.iter()
                                             .map(|t| {
                                                 <SuspendedType as Into<Result<Type, E>>>::into(
                                                     t.clone(),
@@ -388,7 +388,7 @@ pub mod de {
                                             .collect::<Result<Vec<_>, _>>()?,
                                     ),
                                     SuspendedType::Map(map) => Fields::Named(
-                                        map.into_iter()
+                                        map.iter()
                                             .map(|(n, t)| {
                                                 <SuspendedType as Into<Result<Type, E>>>::into(
                                                     t.clone(),
@@ -406,7 +406,7 @@ pub mod de {
                             "tuple" => {
                                 let tuple = match t {
                                     SuspendedType::Seq(seq) => seq
-                                        .into_iter()
+                                        .iter()
                                         .map(|t| {
                                             <SuspendedType as Into<Result<Type, E>>>::into(
                                                 t.clone(),
@@ -425,7 +425,7 @@ pub mod de {
                             "enum" => {
                                 let variants = match t {
                                     SuspendedType::Seq(seq) => seq
-                                        .into_iter()
+                                        .iter()
                                         .map(|t| match t {
                                             SuspendedType::Str(n) => Ok(EnumVariant::new(n)),
                                             SuspendedType::Map(map) => {
@@ -434,11 +434,11 @@ pub mod de {
                                                         "invalid enum variant",
                                                     ));
                                                 }
-                                                match map.into_iter().next().unwrap() {
+                                                match map.iter().next().unwrap() {
                                                     (n, SuspendedType::U64(v)) => {
                                                         Ok(EnumVariant::with_const_value(
                                                             n.clone(),
-                                                            v.clone() as u8,
+                                                            *v as u8,
                                                         ))
                                                     }
                                                     _ => Err(de::Error::custom(
@@ -465,7 +465,7 @@ pub mod de {
                             "union" => {
                                 let variants = match t {
                                     SuspendedType::Seq(seq) => seq
-                                        .into_iter()
+                                        .iter()
                                         .map(|t| match t {
                                             SuspendedType::Str(n) => Ok(UnionVariant::new(n)),
                                             SuspendedType::Map(map) => {
@@ -474,11 +474,11 @@ pub mod de {
                                                         "invalid union variant",
                                                     ));
                                                 }
-                                                match map.into_iter().next().unwrap() {
+                                                match map.iter().next().unwrap() {
                                                     (n, SuspendedType::Seq(seq)) => {
                                                         Ok(UnionVariant::with_fields(
                                                             n.clone(),
-                                                            seq.into_iter()
+                                                            seq.iter()
                                                                 .map(|t| {
                                                                     <SuspendedType as Into<
                                                                         Result<Type, E>,
@@ -493,7 +493,7 @@ pub mod de {
                                                     (n, SuspendedType::Map(map)) => {
                                                         Ok(UnionVariant::with_fields(
                                                             n.clone(),
-                                                            map.into_iter()
+                                                            map.iter()
                                                                 .map(|(n, t)| {
                                                                     <SuspendedType as Into<
                                                                         Result<Type, E>,
@@ -521,12 +521,12 @@ pub mod de {
                             }
                             _ => Err(de::Error::custom(format!("unexpected kind `{k}`"))),
                         },
-                        _ => Err(de::Error::custom(format!("invalid kind"))),
+                        _ => Err(de::Error::custom("invalid kind".to_string())),
                     }
                 }
 
                 // No kind is specified
-                _ => return Err(E::custom(format!("invalid kind"))),
+                _ => Err(E::custom("invalid kind".to_string())),
             }
         }
     }
@@ -632,11 +632,8 @@ pub mod de {
             S: SeqAccess<'de>,
         {
             let mut seq = Vec::new();
-            loop {
-                match access.next_element::<SuspendedType>()? {
-                    Some(elem) => seq.push(elem),
-                    None => break,
-                }
+            while let Some(elem) = access.next_element::<SuspendedType>()? {
+                seq.push(elem);
             }
             Ok(SuspendedType::Seq(seq))
         }

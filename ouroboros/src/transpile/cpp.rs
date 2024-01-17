@@ -414,7 +414,7 @@ impl TypedefVisitor {
                     s.push_str(prefix);
                     s.push_str("    ");
                     s.push_str(&TypenameVisitor::visit_type(&field.t));
-                    s.push_str(" ");
+                    s.push(' ');
                     s.push_str(&field.n);
                     s.push_str(";\n");
                 }
@@ -498,7 +498,7 @@ impl TypedefVisitor {
                         ),
                         &format!("{}    ", prefix),
                     ));
-                    s.push_str("\n");
+                    s.push('\n');
                 }
                 Some(Fields::Named(fields)) => {
                     s.push_str(&Self::visit_record_with_prefix(
@@ -508,7 +508,7 @@ impl TypedefVisitor {
                         ),
                         &format!("{}    ", prefix),
                     ));
-                    s.push_str("\n");
+                    s.push('\n');
                 }
                 None => {
                     s.push_str(prefix);
@@ -518,7 +518,7 @@ impl TypedefVisitor {
                 }
             }
         }
-        s.push_str("\n");
+        s.push('\n');
         s.push_str(prefix);
         s.push_str("    Tag tag;\n");
         s.push_str(prefix);

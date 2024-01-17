@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::CString, mem::ManuallyDrop, slice};
+use std::{ffi::CString, mem::ManuallyDrop, slice};
 
 use ouroboros::Lambda;
 use ouroboros_wasm::ErrorCode;
@@ -6,10 +6,13 @@ use tokio::sync::{
     mpsc::{Receiver, Sender},
     oneshot::{self, Sender as Responder},
 };
-use wasmtime::{Caller, Config, Engine, Linker, Module, Store, Val};
+use wasmtime::{Caller, Config, Engine, Linker, Module, Store as WASMStore, Val};
+
+use crate::store::Store as VMStore;
+
+pub mod store;
 
 pub enum VMEvent {
-    Empty,
     Call(Call),
     Deploy(Deploy),
     Shutdown,
@@ -33,21 +36,19 @@ pub struct Func {
 }
 
 pub struct VM {
+    store: Box<dyn VMStore + Send>,
     event_receiver: Receiver<VMEvent>,
     event_sender: Sender<VMEvent>,
-
-    fns: HashMap<String, Func>,
 }
 
 impl VM {
-    pub fn new() -> (Self, Sender<VMEvent>) {
+    pub fn new(store: Box<dyn VMStore + Send>) -> (Self, Sender<VMEvent>) {
         let (event_sender, event_receiver) = tokio::sync::mpsc::channel(1024);
-
         (
             Self {
+                store,
                 event_receiver,
                 event_sender: event_sender.clone(),
-                fns: HashMap::new(),
             },
             event_sender,
         )
@@ -56,7 +57,6 @@ impl VM {
     pub async fn run(mut self) {
         while let Some(event) = self.event_receiver.recv().await {
             match event {
-                VMEvent::Empty => {}
                 VMEvent::Call(call_fn) => self.call_fn(call_fn).await,
                 VMEvent::Deploy(deploy_fn) => self.deploy_fn(deploy_fn).await,
                 VMEvent::Shutdown => {
@@ -73,15 +73,12 @@ impl VM {
             responder,
         } = call_fn;
 
-        // Find func
-        println!("> {}", name);
-        let func = match self.fns.get(&name) {
-            Some(func) => func.clone(),
-            None => {
+        let func = match self.store.get_func(&name).await {
+            Ok(Some(func)) => func.clone(),
+            _ => {
                 todo!()
             }
         };
-        println!("> {}: found", name);
 
         let event_sender = self.event_sender.clone();
         tokio::spawn(async move {
@@ -96,7 +93,9 @@ impl VM {
     async fn deploy_fn(&mut self, deploy_fn: Deploy) {
         let Deploy { func } = deploy_fn;
 
-        self.fns.insert(func.name.clone(), func); // FIXME: Should we allow overriding previously deployed functions?
+        if let Err(_e) = self.store.insert_func(func).await {
+            todo!()
+        }
     }
 
     async fn call_in_background(
@@ -106,7 +105,7 @@ impl VM {
     ) -> anyhow::Result<serde_json::Value> {
         // Create a new instance
         let engine = Engine::new(Config::default().async_support(true))?;
-        let mut store = Store::new(&engine, event_sender);
+        let mut store = WASMStore::new(&engine, event_sender);
         let module = Module::new(&engine, &func.code)?;
         let mut linker = Linker::new(&engine);
         linker.func_wrap7_async(
@@ -186,9 +185,9 @@ impl VM {
                             // Load the function name as a utf8 string
                             let lambda = String::from_utf8(unsafe {
                                 Vec::from_raw_parts(
-                                    data[(lambda_ptr as usize)..].as_mut_ptr(),
-                                    (lambda_size) as usize,
-                                    (lambda_size) as usize,
+                                    data[lambda_ptr as usize..].as_mut_ptr(),
+                                    lambda_size as usize,
+                                    lambda_size as usize,
                                 )
                             })
                             .map(ManuallyDrop::new);
@@ -336,26 +335,26 @@ impl VM {
 
         // Load the entrypoint
         let entrypoint = instance.get_typed_func::<i32, i32>(&mut store, &func.entrypoint)?;
-        let Some(memory) = instance.get_memory(&mut store, "memory") else {
-            anyhow::bail!("wasm memory is unavailable");
-        };
+        let memory = instance
+            .get_memory(&mut store, "memory")
+            .expect("memory must be available");
 
         // Alloc enough memory for the args and inject them into memory
         let args = CString::new(serde_json::to_string(&args)?)?;
         let args_size = args.as_bytes_with_nul().len();
-        let args_ptr = alloc.call_async(&mut store, args_size as i32).await?;
+        let args_ptr = alloc.call_async(&mut store, args_size as i32).await?; // FIXME: We cannot blindly trust the allocated pointer
         let data = &mut memory.data_mut(&mut store);
         data[(args_ptr as usize)..(args_ptr as usize + args_size)]
             .copy_from_slice(args.as_bytes_with_nul());
 
         // Load the return value
         let ret_ptr = entrypoint.call_async(&mut store, args_ptr).await?;
-        let Some(memory) = instance.get_memory(&mut store, "memory") else {
-            anyhow::bail!("wasm memory is unavailable");
-        };
+        let memory = instance
+            .get_memory(&mut store, "memory")
+            .expect("memory must be available");
         let data = &mut memory.data_mut(&mut store)[(ret_ptr as usize)..]; // FIXME: We cannot blindly trust that the return C string is actually null terminated
         let ret = serde_json::from_slice(
-            &ManuallyDrop::new(unsafe { CString::from_raw(data.as_mut_ptr() as *mut i8) })
+            ManuallyDrop::new(unsafe { CString::from_raw(data.as_mut_ptr() as *mut i8) })
                 .as_bytes(),
         )?;
 
@@ -381,6 +380,8 @@ impl VM {
         (ptr as usize) < mem.len() && (ptr + size) as usize <= mem.len()
     }
 
+    /// Allocate memory for a WASM module. Returns the pointer to the allocated
+    /// memory. Returns `None` if the allocated memory is invalid.
     async fn alloc_mem<T>(mut caller: &mut Caller<'_, T>, size: i32) -> Option<i32>
     where
         T: Send,
@@ -399,28 +400,26 @@ impl VM {
 
         let mut ptr = [Val::I32(0)];
         alloc
-            .call_async(&mut caller, &[Val::I32(size as i32)], &mut ptr)
+            .call_async(&mut caller, &[Val::I32(size)], &mut ptr)
             .await
-            .expect("async call failed");
+            .expect("async call should succeed"); // FIXME: Is it ok to expect this call to succeed?
         let ptr = ptr[0].unwrap_i32();
 
-        Self::is_ptr_valid(&memory.data(caller), ptr, size).then(|| ptr)
+        Self::is_ptr_valid(memory.data(caller), ptr, size).then_some(ptr)
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod test {
-    use std::env;
 
     use ouroboros::{Lambda, A, B};
-    use tracing_subscriber::{layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
-    use crate::{Call, Deploy, Func, VMEvent, VM};
+    use crate::{store::InMemoryStore, Call, Deploy, Func, VMEvent, VM};
 
     #[tokio::test]
     async fn test_map() -> anyhow::Result<()> {
-        let (vm, vm_sender) = VM::new();
+        let (vm, vm_sender) = VM::new(Box::new(InMemoryStore::new()));
 
         let vm_run_handle = tokio::spawn(async { vm.run().await });
 
@@ -477,7 +476,7 @@ mod test {
 
     #[tokio::test]
     async fn test_compose() -> anyhow::Result<()> {
-        let (vm, vm_sender) = VM::new();
+        let (vm, vm_sender) = VM::new(Box::new(InMemoryStore::new()));
 
         let vm_run_handle = tokio::spawn(async { vm.run().await });
 

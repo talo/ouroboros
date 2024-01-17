@@ -152,8 +152,8 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Create the __ouroboros__entrypoint function
     let entrypoint_fn = quote! {
         #[no_mangle]
-        pub extern "C" fn #entrypoint_fn_name(args: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
-            let args = ::ouroboros_wasm::decode_args::<#input_types, #output_type>(stringify!(#fn_name), args);
+        extern "C" fn #entrypoint_fn_name(args: *const std::os::raw::c_char) -> *mut std::os::raw::c_char {
+            let args = unsafe { ::ouroboros_wasm::decode_args::<#input_types, #output_type>(stringify!(#fn_name), args) };
             match args {
                 ::ouroboros_wasm::ParseResult::Args(args) => ::ouroboros_wasm::encode_result(
                     #fn_name(args)

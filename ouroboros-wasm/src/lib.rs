@@ -27,7 +27,10 @@ pub enum ParseResult<'a, I> {
     Args(I),
 }
 
-pub fn decode_args<I, O>(name: &str, args: *const c_char) -> ParseResult<I>
+/// # Safety
+/// It is assumed that `args` is a pointer returned by `__ouroboros__alloc` that
+/// points to a nul-terminated C string.
+pub unsafe fn decode_args<I, O>(name: &str, args: *const c_char) -> ParseResult<I>
 where
     I: Deserialize<'static> + TypeInfo,
     O: TypeInfo,
@@ -37,7 +40,7 @@ where
         .expect("invalid utf8");
 
     if args
-        .split(" ")
+        .split(' ')
         .next()
         .map(|s| s.trim().starts_with("--manifest"))
         .unwrap_or(false)
@@ -120,22 +123,35 @@ where
 #[no_mangle]
 pub extern "C" fn __ouroboros__alloc(size: usize) -> *mut u8 {
     let mut buf = ManuallyDrop::new(Vec::with_capacity(size));
-    let ptr = buf.as_mut_ptr();
-    ptr
+    buf.as_mut_ptr()
 }
 
+/// # Safety
+/// It is assumed that `ptr` is a pointer returned by `__ouroboros__alloc`. Not
+/// other pointer is valid.
 #[no_mangle]
-pub extern "C" fn __ouroboros__free(ptr: *mut u8, size: usize) {
-    unsafe {
-        let mut buf = ManuallyDrop::new(Vec::from_raw_parts(ptr, size, size));
-        ManuallyDrop::drop(&mut buf);
-    }
+pub unsafe extern "C" fn __ouroboros__free(ptr: *mut u8, size: usize) {
+    let mut buf = ManuallyDrop::new(unsafe { Vec::from_raw_parts(ptr, size, size) });
+    ManuallyDrop::drop(&mut buf);
 }
 
 extern "C" {
     pub fn __ouroboros__call_fn(
         lambda_ptr: *const u8,
         lambda_size: u32,
+
+        args_ptr: *const u8,
+        args_size: u32,
+
+        ret_ptr: *mut *const u8,
+        ret_size: *mut u32,
+
+        err_code_ptr: *mut u32,
+    );
+
+    pub fn __ouroboros__call_mod(
+        module_ptr: *const u8,
+        module_size: u32,
 
         args_ptr: *const u8,
         args_size: u32,

@@ -16,7 +16,7 @@ impl Symbolic {
         value.is_string()
             && value
                 .as_str()
-                .map(|s| s.starts_with("$") && (s[1..] == self.n))
+                .map(|s| s.starts_with('$') && (s[1..] == self.n))
                 .unwrap_or(false)
     }
 }
