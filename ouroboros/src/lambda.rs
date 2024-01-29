@@ -68,6 +68,16 @@ impl<A, B> Lambda<A, B> {
     }
 }
 
+impl<A, B> Lambda<A, B>
+where
+    A: TypeInfo,
+    B: TypeInfo,
+{
+    pub fn type_info(&self) -> Type {
+        <Lambda<A, B> as TypeInfo>::t()
+    }
+}
+
 impl<A, B> TypeInfo for Lambda<A, B>
 where
     A: TypeInfo,
@@ -121,7 +131,31 @@ macro_rules! impl_curry {
     };
 }
 
-impl_curry!(A1);
+impl<A0, A1, B> Curry for Lambda<(A0, A1), B>
+where
+    A0: Serialize,
+{
+    type Arg = A0;
+    type Closure = Lambda<A1, B>;
+    type Error = serde_json::Error;
+
+    fn curry(self, arg: Self::Arg) -> Result<Self::Closure, Self::Error> {
+        let mut captured_args = self.captured_args;
+        captured_args.push(serde_json::to_value(&arg)?);
+        Ok(Lambda {
+            doc: self.doc,
+            n: self.n,
+            extras: self.extras,
+            captured_args,
+
+            _args: PhantomData,
+            _ret: PhantomData,
+        })
+    }
+}
+
+// Explicitly implement the 2-tuple case so that we do not end up with a 1-tuple after currying.
+
 impl_curry!(A1, A2);
 impl_curry!(A1, A2, A3);
 impl_curry!(A1, A2, A3, A4);

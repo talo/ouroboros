@@ -63,9 +63,11 @@ impl Func {
 
 impl Display for Func {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        "(".fmt(f)?;
         self.a.fmt(f)?;
         " -> ".fmt(f)?;
-        self.b.fmt(f)
+        self.b.fmt(f)?;
+        ")".fmt(f)
     }
 }
 
