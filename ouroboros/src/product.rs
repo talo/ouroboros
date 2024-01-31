@@ -83,7 +83,7 @@ impl Record {
         Self {
             doc: None,
             n: n.into(),
-            fields: Fields::Unnamed(vec![]),
+            fields: Vec::<UnnamedField>::new().into(),
         }
     }
 

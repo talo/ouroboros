@@ -251,7 +251,7 @@ pub mod ser {
             match self {
                 Fields::Named(fields) => {
                     let mut map = serializer.serialize_map(Some(2))?;
-                    for field in fields {
+                    for field in fields.iter() {
                         map.serialize_entry(&field.n, &field.t)?;
                     }
                     map.end()
@@ -393,7 +393,7 @@ pub mod de {
                             }
                             "record" => {
                                 let fields = match t {
-                                    SuspendedType::Seq(seq) => Fields::Unnamed(
+                                    SuspendedType::Seq(seq) => Fields::from(
                                         seq.iter()
                                             .map(|t| {
                                                 <SuspendedType as Into<Result<Type, E>>>::into(
@@ -403,7 +403,7 @@ pub mod de {
                                             })
                                             .collect::<Result<Vec<_>, _>>()?,
                                     ),
-                                    SuspendedType::Map(map) => Fields::Named(
+                                    SuspendedType::Map(map) => Fields::from(
                                         map.iter()
                                             .map(|(n, t)| {
                                                 <SuspendedType as Into<Result<Type, E>>>::into(

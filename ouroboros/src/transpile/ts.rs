@@ -402,7 +402,7 @@ impl TypedefVisitor {
                 s.push_str("type ");
                 s.push_str(&record.n);
                 s.push_str(" = {\n");
-                for field in fields {
+                for field in fields.iter() {
                     s.push_str(prefix);
                     s.push_str("    ");
                     s.push_str(&TypenameVisitor::visit_type(&field.t));

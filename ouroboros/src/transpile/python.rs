@@ -4,6 +4,7 @@ use crate::{
     sum::{Enum, EnumVariant, Optional, Union},
     symbolic::Symbolic,
     type_info::Type,
+    NamedFields,
 };
 
 pub struct TypenameVisitor;
@@ -515,7 +516,10 @@ impl TypedefVisitor {
                 }
                 None => {
                     s.push_str(&Self::visit_record_with_prefix(
-                        &Record::new(format!("{}_Body", &variant.n), Fields::named([])),
+                        &Record::new(
+                            format!("{}_Body", &variant.n),
+                            Fields::named(NamedFields::empty()),
+                        ),
                         &format!("{}    ", prefix),
                     ));
                     s.push('\n');

@@ -1,4 +1,10 @@
-use ouroboros::{transpile::cpp::TypedefVisitor, Tuple, TypeName, UnnamedField};
+use ouroboros::{
+    transpile::{
+        cpp::{self, TypedefVisitor},
+        python, ts,
+    },
+    TypeName, UnnamedField,
+};
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
 
@@ -99,7 +105,7 @@ fn test_generic_record() {
     );
     assert_eq!(
         Gen::<Foo>::t(),
-        Type::Tuple(Tuple::new([Foo::t()].map(UnnamedField::new)))
+        Type::Record(Record::new("Gen", [Foo::t()]))
     );
 }
 
@@ -142,5 +148,9 @@ fn test_union() {
         ))
     );
 
-    println!("{}", TypedefVisitor::visit_type(&Baz::t()));
+    println!("{}", &Baz::t());
+    println!("{}", serde_json::to_string_pretty(&Baz::t()).unwrap());
+    println!("{}", cpp::TypedefVisitor::visit_type(&Baz::t()));
+    println!("{}", python::TypedefVisitor::visit_type(&Baz::t()));
+    println!("{}", ts::TypedefVisitor::visit_type(&Baz::t()));
 }

@@ -187,7 +187,7 @@ where
             Fields::Named(fields) => {
                 let val = val.as_object().expect("value should be record");
                 v.visit_record_with_named_fields(rec, val)?;
-                for field in fields {
+                for field in fields.iter() {
                     walk_value(
                         v,
                         &field.t,
@@ -439,14 +439,14 @@ where
         Type::Record(rec) => match &rec.fields {
             Fields::Named(fields) => {
                 v.visit_record_with_named_fields(rec)?;
-                for field in fields {
+                for field in fields.iter() {
                     walk_type(v, &field.t)?;
                 }
                 Ok(())
             }
             Fields::Unnamed(fields) => {
                 v.visit_record_with_unnamed_fields(rec)?;
-                for field in fields {
+                for field in fields.iter() {
                     walk_type(v, &field.t)?;
                 }
                 Ok(())
