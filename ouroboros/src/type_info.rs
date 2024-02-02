@@ -395,70 +395,6 @@ impl<T: TypeInfo> TypeInfo for [T] {
     }
 }
 
-impl<T0: TypeInfo> TypeInfo for (T0,) {
-    fn tname() -> TypeName {
-        TypeName {
-            n: "tuple",
-            g: vec![T0::tname()],
-        }
-    }
-
-    fn t() -> Type {
-        Type::Tuple(Tuple::new([UnnamedField::new(T0::t())]))
-    }
-}
-
-impl<T0: TypeInfo, T1: TypeInfo> TypeInfo for (T0, T1) {
-    fn tname() -> TypeName {
-        TypeName {
-            n: "tuple",
-            g: vec![T0::tname(), T1::tname()],
-        }
-    }
-
-    fn t() -> Type {
-        Type::Tuple(Tuple::new([
-            UnnamedField::new(T0::t()),
-            UnnamedField::new(T1::t()),
-        ]))
-    }
-}
-
-impl<T0: TypeInfo, T1: TypeInfo, T2: TypeInfo> TypeInfo for (T0, T1, T2) {
-    fn tname() -> TypeName {
-        TypeName {
-            n: "tuple",
-            g: vec![T0::tname(), T1::tname(), T2::tname()],
-        }
-    }
-
-    fn t() -> Type {
-        Type::Tuple(Tuple::new([
-            UnnamedField::new(T0::t()),
-            UnnamedField::new(T1::t()),
-            UnnamedField::new(T2::t()),
-        ]))
-    }
-}
-
-impl<T0: TypeInfo, T1: TypeInfo, T2: TypeInfo, T3: TypeInfo> TypeInfo for (T0, T1, T2, T3) {
-    fn tname() -> TypeName {
-        TypeName {
-            n: "tuple",
-            g: vec![T0::tname(), T1::tname(), T2::tname(), T3::tname()],
-        }
-    }
-
-    fn t() -> Type {
-        Type::Tuple(Tuple::new([
-            UnnamedField::new(T0::t()),
-            UnnamedField::new(T1::t()),
-            UnnamedField::new(T2::t()),
-            UnnamedField::new(T3::t()),
-        ]))
-    }
-}
-
 impl<T: TypeInfo> TypeInfo for Option<T> {
     fn tname() -> TypeName {
         TypeName {
@@ -522,3 +458,57 @@ impl Display for Type {
         }
     }
 }
+
+macro_rules! impl_tuple {
+    ($($args: ident),*) => {
+        impl<$($args),*> TypeInfo for ($($args),*)
+        where
+            $($args: TypeInfo),*
+        {
+
+            fn tname() -> TypeName {
+                TypeName {
+                    n: "tuple",
+                    g: vec![$($args::tname()),*],
+                }
+            }
+
+            fn t() -> Type {
+                Type::Tuple(Tuple::new([
+                    $(UnnamedField::new($args::t())),*
+                ]))
+            }
+        }
+    };
+}
+
+// implement for the unary-tuple case because macro rules are weird
+
+impl<T0: TypeInfo> TypeInfo for (T0,) {
+    fn tname() -> TypeName {
+        TypeName {
+            n: "tuple",
+            g: vec![T0::tname()],
+        }
+    }
+
+    fn t() -> Type {
+        Type::Tuple(Tuple::new([UnnamedField::new(T0::t())]))
+    }
+}
+
+impl_tuple!(T0, T1);
+impl_tuple!(T0, T1, T2);
+impl_tuple!(T0, T1, T2, T3);
+impl_tuple!(T0, T1, T2, T3, T4);
+impl_tuple!(T0, T1, T2, T3, T4, T5);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
+impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
