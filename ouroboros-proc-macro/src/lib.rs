@@ -46,35 +46,7 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
             if is_enum {
                 let variants = data.variants.iter().map(|variant| {
                     let mut variant_name = format!("{}", variant.ident.clone());
-
-                    for attr in &variant.attrs {
-                        let maybe_meta_tokens_iter =
-                            attr.meta.require_list().ok().and_then(|meta_list| {
-                                meta_list
-                                    .path
-                                    .segments
-                                    .first()
-                                    .filter(|serde_ident| serde_ident.ident == "serde")
-                                    .map(|_| meta_list.tokens.clone().into_iter())
-                            });
-                        if let Some(mut meta_tokens_iter) = maybe_meta_tokens_iter {
-                            match (
-                                meta_tokens_iter.next().map(|t| t.to_string()).as_deref(),
-                                meta_tokens_iter.next().map(|t| t.to_string()).as_deref(),
-                                meta_tokens_iter.next().map(|t| t.to_string()),
-                            ) {
-                                (Some("rename"), Some("="), Some(variant_name_lit))
-                                    if variant_name_lit.starts_with('\"')
-                                        && variant_name_lit.ends_with('\"') =>
-                                {
-                                    variant_name =
-                                        variant_name_lit[1..variant_name_lit.len() - 1].to_owned();
-                                    break;
-                                }
-                                _ => {}
-                            }
-                        };
-                    }
+                    rename_variant(&mut variant_name, variant);
 
                     quote! {
                         ::ouroboros::EnumVariant::new(#variant_name)
@@ -84,36 +56,8 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
             } else {
                 let variants = data.variants.iter().map(|variant| {
                     let mut variant_name = format!("{}", variant.ident.clone());
+                    rename_variant(&mut variant_name, variant);
 
-                    for attr in &variant.attrs {
-                        let maybe_meta_tokens_iter =
-                            attr.meta.require_list().ok().and_then(|meta_list| {
-                                meta_list
-                                    .path
-                                    .segments
-                                    .first()
-                                    .filter(|serde_ident| serde_ident.ident == "serde")
-                                    .map(|_| meta_list.tokens.clone().into_iter())
-                            });
-                        if let Some(mut meta_tokens_iter) = maybe_meta_tokens_iter {
-                            match (
-                                meta_tokens_iter.next().map(|t| t.to_string()).as_deref(),
-                                meta_tokens_iter.next().map(|t| t.to_string()).as_deref(),
-                                meta_tokens_iter.next().map(|t| t.to_string()),
-                            ) {
-                                (Some("rename"), Some("="), Some(variant_name_lit))
-                                    if variant_name_lit.starts_with('\"')
-                                        && variant_name_lit.ends_with('\"') =>
-                                {
-                                    variant_name =
-                                        variant_name_lit[1..variant_name_lit.len() - 1].to_owned();
-                                    break;
-                                }
-                                _ => {}
-                            }
-                        };
-                    }
-                    
                     match &variant.fields {
                         Fields::Unnamed(unnamed) => {
                             let fields = unnamed.unnamed.iter().map(|field| {
@@ -242,4 +186,32 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     output.into()
+}
+
+fn rename_variant(variant_name: &mut String, variant: &syn::Variant) {
+    for attr in &variant.attrs {
+        let maybe_meta_tokens_iter = attr.meta.require_list().ok().and_then(|meta_list| {
+            meta_list
+                .path
+                .segments
+                .first()
+                .filter(|serde_ident| serde_ident.ident == "serde")
+                .map(|_| meta_list.tokens.clone().into_iter())
+        });
+        if let Some(mut meta_tokens_iter) = maybe_meta_tokens_iter {
+            match (
+                meta_tokens_iter.next().map(|t| t.to_string()).as_deref(),
+                meta_tokens_iter.next().map(|t| t.to_string()).as_deref(),
+                meta_tokens_iter.next().map(|t| t.to_string()),
+            ) {
+                (Some("rename"), Some("="), Some(variant_name_lit))
+                    if variant_name_lit.starts_with('\"') && variant_name_lit.ends_with('\"') =>
+                {
+                    *variant_name = variant_name_lit[1..variant_name_lit.len() - 1].to_owned();
+                    break;
+                }
+                _ => {}
+            }
+        };
+    }
 }
