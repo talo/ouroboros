@@ -1,12 +1,13 @@
 use ouroboros::{
     transpile::{
-        cpp::{self, TypedefVisitor},
+        cpp::{self},
         python, ts,
     },
     TypeName, UnnamedField,
 };
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, TypeInfo)]
 struct Unit;
@@ -16,7 +17,7 @@ struct Unit;
 struct Unnamed(u32, Vec<u32>, Option<u32>);
 
 #[allow(dead_code)]
-#[derive(Clone, Debug, TypeInfo)]
+#[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 struct Foo {
     x: u32,
     y: Vec<u32>,
@@ -28,18 +29,23 @@ struct Foo {
 struct Gen<T: TypeInfo>(T);
 
 #[allow(dead_code)]
-#[derive(Clone, Debug, TypeInfo)]
+#[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 enum Bar {
     X,
+    #[serde(rename = "Z")]
     Y,
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug, TypeInfo)]
+#[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 enum Baz {
     X,
     Y(u32, Vec<u32>),
-    Z { foo: Foo, bar: Bar },
+    #[serde(rename = "W")]
+    Z {
+        foo: Foo,
+        bar: Bar,
+    },
 }
 
 #[test]
@@ -118,11 +124,18 @@ fn test_enum() {
             g: vec![]
         }
     );
-    assert_eq!(
+    assert_ne!(
         Bar::t(),
         Type::Enum(Enum::new(
             "Bar",
             [EnumVariant::new("X"), EnumVariant::new("Y"),]
+        ))
+    );
+    assert_eq!(
+        Bar::t(),
+        Type::Enum(Enum::new(
+            "Bar",
+            [EnumVariant::new("X"), EnumVariant::new("Z"),]
         ))
     );
 }
@@ -136,7 +149,7 @@ fn test_union() {
             g: vec![]
         }
     );
-    assert_eq!(
+    assert_ne!(
         Baz::t(),
         Type::Union(Union::new(
             "Baz",
@@ -144,6 +157,17 @@ fn test_union() {
                 UnionVariant::new("X"),
                 UnionVariant::with_fields("Y", [u32::t(), Vec::<u32>::t()]),
                 UnionVariant::with_fields("Z", [("foo", Foo::t()), ("bar", Bar::t())])
+            ]
+        ))
+    );
+    assert_eq!(
+        Baz::t(),
+        Type::Union(Union::new(
+            "Baz",
+            [
+                UnionVariant::new("X"),
+                UnionVariant::with_fields("Y", [u32::t(), Vec::<u32>::t()]),
+                UnionVariant::with_fields("W", [("foo", Foo::t()), ("bar", Bar::t())])
             ]
         ))
     );
