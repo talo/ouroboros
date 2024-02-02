@@ -16,10 +16,6 @@ impl Symbolic {
 
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         value.is_string()
-            && value
-                .as_str()
-                .map(|s| s.starts_with('$') && (s[1..] == self.n))
-                .unwrap_or(false)
     }
 }
 
