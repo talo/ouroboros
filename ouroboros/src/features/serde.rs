@@ -20,7 +20,7 @@ pub mod ser {
         {
             match self {
                 // Basic types
-                Self::Unit => serializer.serialize_unit(),
+                Self::Unit => serializer.serialize_str("()"),
                 Self::Bool => serializer.serialize_str("bool"),
                 Self::U8 => serializer.serialize_str("u8"),
                 Self::U16 => serializer.serialize_str("u16"),
@@ -319,6 +319,7 @@ pub mod de {
                 // Basic and symbolic kinds
                 SuspendedType::Str(s) => match s.as_str() {
                     // Basic kinds
+                    "()" => Ok(Type::Unit),
                     "bool" => Ok(Type::Bool),
                     "u8" => Ok(Type::U8),
                     "u16" => Ok(Type::U16),
@@ -791,6 +792,13 @@ mod test {
         type_info::{Type, TypeInfo},
         Lambda, Ptr,
     };
+
+    #[test]
+    fn test_unit() {
+        let t = <()>::t();
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(json, r#""()""#);
+    }
 
     #[test]
     fn test_array() {

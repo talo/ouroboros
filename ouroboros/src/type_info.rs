@@ -35,8 +35,8 @@ impl TypeName {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     // Basic types
-    Bool,
     Unit,
+    Bool,
     I8,
     I16,
     I32,
@@ -71,13 +71,13 @@ pub enum Type {
 impl Type {
     pub fn n(&self) -> &str {
         match self {
+            Self::Unit => "()",
             Self::Bool => "bool",
             Self::I8 => "i8",
             Self::I16 => "i16",
             Self::I32 => "i32",
             Self::I64 => "i64",
             Self::I128 => "i128",
-            Self::Unit => "()",
             Self::U8 => "u8",
             Self::U16 => "u16",
             Self::U32 => "u32",
@@ -187,6 +187,15 @@ impl From<Symbolic> for Type {
 impl From<Generic> for Type {
     fn from(t: Generic) -> Self {
         Self::Generic(t)
+    }
+}
+
+impl TypeInfo for () {
+    fn tname() -> TypeName {
+        TypeName { n: "()", g: vec![] }
+    }
+    fn t() -> Type {
+        Type::Unit
     }
 }
 
@@ -356,18 +365,6 @@ impl TypeInfo for f64 {
 
     fn t() -> Type {
         Type::F64
-    }
-}
-
-impl TypeInfo for () {
-    fn tname() -> TypeName {
-        TypeName {
-            n: "()",
-            g: vec![],
-        }
-    }
-    fn t() -> Type {
-        Type::Unit
     }
 }
 

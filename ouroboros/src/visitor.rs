@@ -8,10 +8,10 @@ use crate::{
 pub trait ValueVisitor {
     type Error;
 
-
     fn visit_unit(&mut self, _val: &Value) -> Result<(), Self::Error> {
         Ok(())
     }
+
     fn visit_bool(&mut self, _val: bool) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -299,6 +299,7 @@ pub trait TypeVisitor {
     fn visit_unit(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
+
     fn visit_bool(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
