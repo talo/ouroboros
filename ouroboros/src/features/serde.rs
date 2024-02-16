@@ -20,6 +20,7 @@ pub mod ser {
         {
             match self {
                 // Basic types
+                Self::Unit => serializer.serialize_unit(),
                 Self::Bool => serializer.serialize_str("bool"),
                 Self::U8 => serializer.serialize_str("u8"),
                 Self::U16 => serializer.serialize_str("u16"),

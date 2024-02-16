@@ -8,6 +8,10 @@ use crate::{
 pub trait ValueVisitor {
     type Error;
 
+
+    fn visit_unit(&mut self, _val: &Value) -> Result<(), Self::Error> {
+        Ok(())
+    }
     fn visit_bool(&mut self, _val: bool) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -156,6 +160,7 @@ where
     }
 
     match t {
+        Type::Unit => v.visit_unit(val),
         Type::Bool => v.visit_bool(val.as_bool().expect("value should be bool")),
         Type::U8 => v.visit_u8(val.as_u64().expect("value should be u8") as u8),
         Type::U16 => v.visit_u16(val.as_u64().expect("value should be u16") as u16),
@@ -291,6 +296,9 @@ where
 pub trait TypeVisitor {
     type Error;
 
+    fn visit_unit(&mut self) -> Result<(), Self::Error> {
+        Ok(())
+    }
     fn visit_bool(&mut self) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -413,6 +421,7 @@ where
     V: TypeVisitor,
 {
     match t {
+        Type::Unit => v.visit_unit(),
         Type::Bool => v.visit_bool(),
         Type::U8 => v.visit_u8(),
         Type::U16 => v.visit_u16(),

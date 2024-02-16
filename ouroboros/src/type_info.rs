@@ -36,6 +36,7 @@ impl TypeName {
 pub enum Type {
     // Basic types
     Bool,
+    Unit,
     I8,
     I16,
     I32,
@@ -76,6 +77,7 @@ impl Type {
             Self::I32 => "i32",
             Self::I64 => "i64",
             Self::I128 => "i128",
+            Self::Unit => "()",
             Self::U8 => "u8",
             Self::U16 => "u16",
             Self::U32 => "u32",
@@ -99,6 +101,7 @@ impl Type {
 
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         match self {
+            Self::Unit => value.is_null(),
             Self::Bool => value.is_boolean(),
             Self::I8 => value.is_i64(),
             Self::I16 => value.is_i64(),
@@ -356,6 +359,18 @@ impl TypeInfo for f64 {
     }
 }
 
+impl TypeInfo for () {
+    fn tname() -> TypeName {
+        TypeName {
+            n: "()",
+            g: vec![],
+        }
+    }
+    fn t() -> Type {
+        Type::Unit
+    }
+}
+
 impl TypeInfo for String {
     fn tname() -> TypeName {
         TypeName {
@@ -431,6 +446,7 @@ impl<T: TypeInfo> TypeInfo for &T {
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Unit => "()".fmt(f),
             Self::Bool => "bool".fmt(f),
             Self::I8 => "i8".fmt(f),
             Self::I16 => "i16".fmt(f),
