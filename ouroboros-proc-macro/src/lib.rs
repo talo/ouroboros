@@ -28,8 +28,10 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                                 if let syn::Expr::Lit(syn::ExprLit { lit, .. }) = value.value {
                                     if let syn::Lit::Str(lit_str) = lit {
                                         let doc_str = lit_str.token().to_string();
-                                        if doc_str.starts_with("\"") && doc_str.ends_with('\"') {
-                                            Some(doc_str[1..doc_str.len() - 1].trim().to_string())
+                                        if doc_str.starts_with("\" ") && doc_str.ends_with('\"') {
+                                            Some(doc_str[2..doc_str.len() - 1].to_string())
+                                        } else if doc_str.starts_with("\"") && doc_str.ends_with('\"') {
+                                            Some(doc_str[1..doc_str.len() - 1].to_string())
                                         } else {
                                             None
                                         }
