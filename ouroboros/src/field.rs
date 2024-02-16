@@ -252,8 +252,14 @@ impl PartialEq for Fields {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Named(a), Self::Named(b)) if a.len() == b.len() => {
-                let a = a.iter().map(|f| (&f.n, &f.t)).collect::<HashMap<_, _>>();
-                let b = b.iter().map(|f| (&f.n, &f.t)).collect::<HashMap<_, _>>();
+                let a = a
+                    .iter()
+                    .map(|f| (&f.n, (&f.doc, &f.t)))
+                    .collect::<HashMap<_, _>>();
+                let b = b
+                    .iter()
+                    .map(|f| (&f.n, (&f.doc, &f.t)))
+                    .collect::<HashMap<_, _>>();
                 a == b
             }
             (Self::Unnamed(a), Self::Unnamed(b)) => a == b,

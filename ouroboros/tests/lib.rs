@@ -37,6 +37,10 @@ struct Foo {
     /// code blocks should also work.
     /// ```
     ///
+    /// And finally:
+    ///     We cannot forget about
+    ///     Tab support.
+    ///
     /// That should be enough!
     z: Option<u32>,
 }
@@ -115,7 +119,7 @@ fn test_named_record() {
                     "y",
                     Vec::<u32>::t(),
                 ),
-                NamedField::with_doc("", "z", Option::<u32>::t(),)
+                NamedField::with_doc("And lastly the z field has a lot of documentation so that we can test\nmultiple lines but also other complex strings.\n\n# For example.\n\nEmpty newlines and headers need to work. And:\n\n- so\n- do\n- lists\n\nAnd ideally:\n\n```\ncode blocks should also work.\n```\n\nAnd finally:\n    We cannot forget about\n    Tab support.\n\nThat should be enough!", "z", Option::<u32>::t(),)
             ]
         ))
     );
