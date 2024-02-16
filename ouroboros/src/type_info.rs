@@ -35,6 +35,7 @@ impl TypeName {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     // Basic types
+    Unit,
     Bool,
     I8,
     I16,
@@ -70,6 +71,7 @@ pub enum Type {
 impl Type {
     pub fn n(&self) -> &str {
         match self {
+            Self::Unit => "()",
             Self::Bool => "bool",
             Self::I8 => "i8",
             Self::I16 => "i16",
@@ -99,6 +101,7 @@ impl Type {
 
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         match self {
+            Self::Unit => value.is_null(),
             Self::Bool => value.is_boolean(),
             Self::I8 => value.is_i64(),
             Self::I16 => value.is_i64(),
@@ -184,6 +187,15 @@ impl From<Symbolic> for Type {
 impl From<Generic> for Type {
     fn from(t: Generic) -> Self {
         Self::Generic(t)
+    }
+}
+
+impl TypeInfo for () {
+    fn tname() -> TypeName {
+        TypeName { n: "()", g: vec![] }
+    }
+    fn t() -> Type {
+        Type::Unit
     }
 }
 
@@ -431,6 +443,7 @@ impl<T: TypeInfo> TypeInfo for &T {
 impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Unit => "()".fmt(f),
             Self::Bool => "bool".fmt(f),
             Self::I8 => "i8".fmt(f),
             Self::I16 => "i16".fmt(f),
