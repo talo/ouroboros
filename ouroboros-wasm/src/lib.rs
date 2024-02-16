@@ -99,6 +99,9 @@ where
 
         let mut err_code = 0u32;
 
+        // This needs to be here for target configurations where
+        // `__ouroboros__call_fn` is actually defined over an FFI.
+        #[allow(unused_unsafe)]
         unsafe {
             __ouroboros__call_fn(
                 lambda.as_ptr(),
@@ -135,6 +138,7 @@ pub unsafe extern "C" fn __ouroboros__free(ptr: *mut u8, size: usize) {
     ManuallyDrop::drop(&mut buf);
 }
 
+#[cfg(target = "wasm32-unknown-unknown")]
 extern "C" {
     pub fn __ouroboros__call_fn(
         lambda_ptr: *const u8,
@@ -161,4 +165,38 @@ extern "C" {
 
         err_code_ptr: *mut u32,
     );
+}
+
+#[cfg(not(target = "wasm32-unknown-unknown"))]
+#[no_mangle]
+pub extern "C" fn __ouroboros__call_fn(
+    _lambda_ptr: *const u8,
+    _lambda_size: u32,
+
+    _args_ptr: *const u8,
+    _args_size: u32,
+
+    _ret_ptr: *mut *const u8,
+    _ret_size: *mut u32,
+
+    _err_code_ptr: *mut u32,
+) {
+    unimplemented!()
+}
+
+#[cfg(not(target = "wasm32-unknown-unknown"))]
+#[no_mangle]
+pub extern "C" fn __ouroboros__call_mod(
+    _module_ptr: *const u8,
+    _module_size: u32,
+
+    _args_ptr: *const u8,
+    _args_size: u32,
+
+    _ret_ptr: *mut *const u8,
+    _ret_size: *mut u32,
+
+    _err_code_ptr: *mut u32,
+) {
+    unimplemented!()
 }
