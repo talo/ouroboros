@@ -13,10 +13,47 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
         Data::Struct(data) => match &data.fields {
             Fields::Named(named) => {
                 let fields = named.named.iter().map(|field| {
+                    let field_docs = field
+                        .attrs
+                        .iter()
+                        .filter_map(|attr| {
+                            if attr.path().is_ident("doc") {
+                                Some(attr.meta.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .filter_map(|meta| {
+                            if let syn::Meta::NameValue(value) = meta {
+                                if let syn::Expr::Lit(syn::ExprLit { lit, .. }) = value.value {
+                                    if let syn::Lit::Str(lit_str) = lit {
+                                        let doc_str = lit_str.token().to_string();
+                                        if doc_str.starts_with("\"") && doc_str.ends_with('\"') {
+                                            Some(doc_str[1..doc_str.len() - 1].trim().to_string())
+                                        } else {
+                                            None
+                                        }
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        }).collect::<Vec<_>>();
                     let field_name = format!("{}", field.ident.clone().unwrap());
                     let field_type = describe_type(&field.ty);
-                    quote! {
-                        fields.push(::ouroboros::NamedField::new(#field_name.to_string(), #field_type));
+                    if field_docs.len() == 0 { 
+                        quote! {
+                            fields.push(::ouroboros::NamedField::new(#field_name, #field_type));
+                        }
+                    } else { 
+                        let field_doc = field_docs.join("\n");
+                        quote! {
+                            fields.push(::ouroboros::NamedField::with_doc(#field_doc, #field_name, #field_type));
+                        }
                     }
                 });
                 quote!(

@@ -1,9 +1,6 @@
 use ouroboros::{
-    transpile::{
-        cpp::{self},
-        python, ts,
-    },
-    TypeName, UnnamedField,
+    transpile::{cpp, python, ts},
+    NamedField, TypeName, UnnamedField,
 };
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
@@ -19,8 +16,28 @@ struct Unnamed(u32, Vec<u32>, Option<u32>);
 #[allow(dead_code)]
 #[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 struct Foo {
+    /// This is the x field.
     x: u32,
+    /// This is another field, called the y field.
     y: Vec<u32>,
+    /// And lastly the z field has a lot of documentation so that we can test
+    /// multiple lines but also other complex strings.
+    ///
+    /// # For example.
+    ///
+    /// Empty newlines and headers need to work. And:
+    ///
+    /// - so
+    /// - do
+    /// - lists
+    ///
+    /// And ideally:
+    ///
+    /// ```
+    /// code blocks should also work.
+    /// ```
+    ///
+    /// That should be enough!
     z: Option<u32>,
 }
 
@@ -92,9 +109,13 @@ fn test_named_record() {
         Type::Record(Record::new(
             "Foo",
             [
-                ("x", Type::U32,),
-                ("y", Vec::<u32>::t(),),
-                ("z", Option::<u32>::t(),)
+                NamedField::with_doc("This is the x field.", "x", Type::U32,),
+                NamedField::with_doc(
+                    "This is another field, called the y field.",
+                    "y",
+                    Vec::<u32>::t(),
+                ),
+                NamedField::with_doc("", "z", Option::<u32>::t(),)
             ]
         ))
     );

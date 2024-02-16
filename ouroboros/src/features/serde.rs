@@ -10,7 +10,7 @@ pub mod ser {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Func, Generic, Ptr,
+        Func, Generic, NamedField, Ptr,
     };
 
     impl Serialize for Type {
@@ -251,19 +251,35 @@ pub mod ser {
         {
             match self {
                 Fields::Named(fields) => {
-                    let mut map = serializer.serialize_map(Some(2))?;
+                    let mut map = serializer.serialize_map(Some(fields.len()))?;
                     for field in fields.iter() {
-                        map.serialize_entry(&field.n, &field.t)?;
+                        map.serialize_entry(&field.n, &field)?;
                     }
                     map.end()
                 }
                 Fields::Unnamed(fields) => {
                     let mut seq = serializer.serialize_seq(Some(fields.len()))?;
                     for field in fields.iter() {
-                        seq.serialize_element(&field.t)?;
+                        seq.serialize_element(&field)?;
                     }
                     seq.end()
                 }
+            }
+        }
+    }
+
+    impl Serialize for NamedField {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            if let Some(doc) = &self.doc {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("doc", doc)?;
+                map.serialize_entry("t", &self.t)?;
+                map.end()
+            } else {
+                self.t.serialize(serializer)
             }
         }
     }
@@ -273,7 +289,14 @@ pub mod ser {
         where
             S: Serializer,
         {
-            self.t.serialize(serializer)
+            if let Some(doc) = &self.doc {
+                let mut map = serializer.serialize_map(Some(2))?;
+                map.serialize_entry("doc", doc)?;
+                map.serialize_entry("t", &self.t)?;
+                map.end()
+            } else {
+                self.t.serialize(serializer)
+            }
         }
     }
 }
@@ -308,6 +331,42 @@ pub mod de {
         Str(String),
         Seq(Vec<SuspendedType>),
         Map(HashMap<String, SuspendedType>),
+    }
+
+    impl<E> From<SuspendedType> for Result<UnnamedField, E>
+    where
+        E: de::Error,
+    {
+        fn from(suspended_type: SuspendedType) -> Self {
+            // First attempt to deserialized the suspended type into a standard type
+            let try_type = <SuspendedType as Into<Result<Type, E>>>::into(suspended_type.clone());
+
+            match try_type {
+                Ok(t) => Ok(UnnamedField::new(t)),
+                _ => match suspended_type {
+                    // Maps are handled as a special-case because of doc strings
+                    SuspendedType::Map(map) => {
+                        // Type spec
+                        let t = map.get("t").ok_or(de::Error::custom("expected `t`"))?;
+                        // Optional doc
+                        match map.get("doc") {
+                            Some(SuspendedType::Str(d)) => Ok(UnnamedField::with_doc(
+                                d,
+                                <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?,
+                            )),
+                            Some(_) => return Err(de::Error::custom("invalid documentation")),
+                            None => Ok(UnnamedField::new(<SuspendedType as Into<
+                                Result<Type, E>,
+                            >>::into(
+                                t.clone()
+                            )?)),
+                        }
+                    }
+                    // Otherwise must be invalid
+                    _ => Err(E::custom(format!("invalid unnamed field"))),
+                },
+            }
+        }
     }
 
     impl<E> From<SuspendedType> for Result<Type, E>
@@ -398,20 +457,23 @@ pub mod de {
                                     SuspendedType::Seq(seq) => Fields::from(
                                         seq.iter()
                                             .map(|t| {
-                                                <SuspendedType as Into<Result<Type, E>>>::into(
-                                                    t.clone(),
-                                                )
-                                                .map(UnnamedField::new)
+                                                <SuspendedType as Into<
+                                                        Result<UnnamedField, E>,
+                                                    >>::into(
+                                                        t.clone()
+                                                    )
                                             })
                                             .collect::<Result<Vec<_>, _>>()?,
                                     ),
                                     SuspendedType::Map(map) => Fields::from(
                                         map.iter()
                                             .map(|(n, t)| {
-                                                <SuspendedType as Into<Result<Type, E>>>::into(
-                                                    t.clone(),
-                                                )
-                                                .map(|t| NamedField::new(n, t))
+                                                <SuspendedType as Into<
+                                                        Result<UnnamedField, E>,
+                                                    >>::into(
+                                                        t.clone()
+                                                    )
+                                                    .map(|unnamed_field| unnamed_field.name(n))
                                             })
                                             .collect::<Result<Vec<_>, _>>()?,
                                     ),
@@ -583,6 +645,15 @@ pub mod de {
         }
     }
 
+    impl<'de> Deserialize<'de> for UnnamedField {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            deserializer.deserialize_any(SuspendedTypeVisitor)?.into()
+        }
+    }
+
     impl<'de> Deserialize<'de> for EnumVariant {
         fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
         where
@@ -696,9 +767,8 @@ pub mod de {
         {
             let mut unnamed_fields = Vec::new();
             loop {
-                let field = access.next_element::<Type>()?;
-                match field {
-                    Some(t) => unnamed_fields.push(UnnamedField::new(t)),
+                match access.next_element::<UnnamedField>()? {
+                    Some(field) => unnamed_fields.push(field),
                     None => break,
                 }
             }
@@ -711,9 +781,8 @@ pub mod de {
         {
             let mut named_fields = Vec::new();
             loop {
-                let field = access.next_entry::<String, Type>()?;
-                match field {
-                    Some((n, t)) => named_fields.push(NamedField::new(n, t)),
+                match access.next_entry::<String, UnnamedField>()? {
+                    Some((n, unnamed_field)) => named_fields.push(unnamed_field.name(n)),
                     None => break,
                 }
             }
@@ -790,7 +859,7 @@ mod test {
         product::Record,
         sum::{Enum, EnumVariant, Union, UnionVariant},
         type_info::{Type, TypeInfo},
-        Lambda, Ptr,
+        Lambda, NamedField, Ptr, UnnamedField,
     };
 
     #[test]
@@ -862,6 +931,70 @@ mod test {
         assert_eq!(t, u);
         let u = serde_json::from_str::<Type>(
             r#"{"n":"Foo","t":{"baz":{"t":"u8","k":"array"},"bar":"u8"},"k":"record"}"#,
+        )
+        .unwrap();
+        assert_eq!(t, u);
+    }
+
+    #[test]
+    fn test_record_with_docs() {
+        let t = Type::Record(Record::with_doc(
+            "Docs for foo",
+            "Foo",
+            [u8::t(), Vec::<u8>::t()],
+        ));
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(
+            json,
+            r#"{"doc":"Docs for foo","k":"record","t":["u8",{"k":"array","t":"u8"}],"n":"Foo"}"#
+        );
+        let u = serde_json::from_str::<Type>(&json).unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(
+            r#"{"n":"Foo","t":["u8",{"t":"u8","k":"array"}],"doc":"Docs for foo","k":"record"}"#,
+        )
+        .unwrap();
+        assert_eq!(t, u);
+    }
+
+    #[test]
+    fn test_record_with_field_docs() {
+        let t = Type::Record(Record::new(
+            "Foo",
+            [
+                NamedField::with_doc("This is field x", "x", u8::t()),
+                NamedField::with_doc("This is field y", "y", Vec::<u8>::t()),
+            ],
+        ));
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(
+            json,
+            r#"{"k":"record","t":{"x":{"doc":"This is field x","t":"u8"},"y":{"doc":"This is field y","t":{"k":"array","t":"u8"}}},"n":"Foo"}"#
+        );
+        let u = serde_json::from_str::<Type>(&json).unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(
+            r#"{"t":{"x":{"t":"u8","doc":"This is field x"},"y":{"t":{"k":"array","t":"u8"},"doc":"This is field y"}},"n":"Foo","k":"record"}"#
+        )
+        .unwrap();
+        assert_eq!(t, u);
+
+        let t = Type::Record(Record::new(
+            "Foo",
+            [
+                UnnamedField::with_doc("This is field 1", u8::t()),
+                UnnamedField::with_doc("This is field 2", Vec::<u8>::t()),
+            ],
+        ));
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(
+            json,
+            r#"{"k":"record","t":[{"doc":"This is field 1","t":"u8"},{"doc":"This is field 2","t":{"k":"array","t":"u8"}}],"n":"Foo"}"#
+        );
+        let u = serde_json::from_str::<Type>(&json).unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(
+            r#"{"k":"record","t":[{"t":"u8","doc":"This is field 1"},{"t":{"t":"u8","k":"array"},"doc":"This is field 2"}],"n":"Foo"}"#
         )
         .unwrap();
         assert_eq!(t, u);

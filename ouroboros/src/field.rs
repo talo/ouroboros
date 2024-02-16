@@ -90,6 +90,14 @@ impl NamedField {
             t,
         }
     }
+
+    pub fn with_doc(doc: impl Into<String>, n: impl Into<String>, t: Type) -> Self {
+        Self {
+            doc: Some(doc.into()),
+            n: n.into(),
+            t,
+        }
+    }
 }
 
 impl Display for NamedField {
@@ -175,6 +183,21 @@ pub struct UnnamedField {
 impl UnnamedField {
     pub fn new(t: Type) -> Self {
         Self { doc: None, t }
+    }
+
+    pub fn with_doc(doc: impl Into<String>, t: Type) -> Self {
+        Self {
+            doc: Some(doc.into()),
+            t,
+        }
+    }
+
+    pub fn name(self, n: impl Into<String>) -> NamedField {
+        NamedField {
+            doc: self.doc,
+            n: n.into(),
+            t: self.t,
+        }
     }
 }
 

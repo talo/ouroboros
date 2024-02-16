@@ -95,6 +95,18 @@ impl Record {
         }
     }
 
+    pub fn with_doc(
+        doc: impl Into<String>,
+        n: impl Into<String>,
+        fields: impl Into<Fields>,
+    ) -> Self {
+        Self {
+            doc: Some(doc.into()),
+            n: n.into(),
+            fields: fields.into(),
+        }
+    }
+
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         self.fields.is_compat(value)
     }
