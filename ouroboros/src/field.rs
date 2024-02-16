@@ -207,6 +207,12 @@ impl Display for UnnamedField {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum FieldsDocMap {
+    Named(HashMap<String, String>),
+    Unnamed(Vec<Option<String>>),
+}
+
 #[derive(Clone, Debug, Eq)]
 pub enum Fields {
     Named(NamedFields),
@@ -244,6 +250,29 @@ impl Fields {
                 })
                 .unwrap_or(false),
             _ => false,
+        }
+    }
+
+    pub fn is_documented(&self) -> bool {
+        match self {
+            Self::Named(fields) => fields.iter().any(|f| f.doc.is_some()),
+            Self::Unnamed(fields) => fields.iter().any(|f| f.doc.is_some()),
+        }
+    }
+
+    pub fn doc_map(&self) -> FieldsDocMap {
+        match self {
+            Self::Named(fields) => {
+                let docs = fields
+                    .iter()
+                    .filter_map(|f| f.doc.as_ref().map(|doc| (f.n.clone(), doc.clone())))
+                    .collect();
+                FieldsDocMap::Named(docs)
+            }
+            Self::Unnamed(fields) => {
+                let docs = fields.iter().map(|f| f.doc.clone()).collect();
+                FieldsDocMap::Unnamed(docs)
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::{
     field::{Fields, UnnamedField},
     type_info::Type,
+    FieldsDocMap,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -71,6 +72,12 @@ impl Display for Func {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordDocMap {
+    pub record: Option<String>,
+    pub fields: FieldsDocMap,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Record {
     pub doc: Option<String>,
@@ -109,6 +116,17 @@ impl Record {
 
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         self.fields.is_compat(value)
+    }
+
+    pub fn is_documented(&self) -> bool {
+        self.doc.is_some() || self.fields.is_documented()
+    }
+
+    pub fn doc_map(&self) -> RecordDocMap {
+        RecordDocMap {
+            record: self.doc.clone(),
+            fields: self.fields.doc_map(),
+        }
     }
 }
 

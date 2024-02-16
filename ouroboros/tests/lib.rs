@@ -108,6 +108,7 @@ fn test_named_record() {
             g: vec![]
         }
     );
+    println!("{}", serde_json::to_string_pretty(&Foo::t()).unwrap());
     assert_eq!(
         Foo::t(),
         Type::Record(Record::new(

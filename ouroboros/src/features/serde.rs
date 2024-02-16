@@ -10,7 +10,7 @@ pub mod ser {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Func, Generic, NamedField, Ptr,
+        FieldsDocMap, Func, Generic, NamedField, Ptr, RecordDocMap,
     };
 
     impl Serialize for Type {
@@ -89,14 +89,28 @@ pub mod ser {
         }
     }
 
+    impl Serialize for RecordDocMap {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut map = serializer.serialize_map(Some(2))?;
+            if let Some(record) = &self.record {
+                map.serialize_entry("record", &record)?;
+            }
+            map.serialize_entry("fields", &self.fields)?;
+            map.end()
+        }
+    }
+
     impl Serialize for Record {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: Serializer,
         {
             let mut map = serializer.serialize_map(Some(4))?;
-            if let Some(d) = &self.doc {
-                map.serialize_entry("doc", d)?;
+            if self.is_documented() {
+                map.serialize_entry("doc", &self.doc_map())?;
             }
             map.serialize_entry("k", "record")?;
             map.serialize_entry("t", &self.fields)?;
@@ -243,6 +257,30 @@ pub mod ser {
     //
     // Fields
     //
+
+    impl Serialize for FieldsDocMap {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            match self {
+                FieldsDocMap::Named(fields) => {
+                    let mut map = serializer.serialize_map(Some(fields.len()))?;
+                    for (f, f_doc) in fields.iter() {
+                        map.serialize_entry(&f, &f_doc)?;
+                    }
+                    map.end()
+                }
+                FieldsDocMap::Unnamed(fields) => {
+                    let mut seq = serializer.serialize_seq(Some(fields.len()))?;
+                    for f_doc in fields.iter() {
+                        seq.serialize_element(&f_doc)?;
+                    }
+                    seq.end()
+                }
+            }
+        }
+    }
 
     impl Serialize for Fields {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

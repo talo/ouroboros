@@ -6,13 +6,13 @@ use tokio::sync::{
     mpsc::{Receiver, Sender},
     oneshot::{self, Sender as Responder},
 };
-use wasmtime::{Caller, Config, Engine, Linker, Module, Store as WASMStore, Val};
+use wasmtime::{Caller, Config, Engine, Linker, Module, Val};
 
-use crate::store::Store as VMStore;
+use crate::store::Store;
 
 pub mod store;
 
-pub enum VMEvent {
+pub enum Event {
     Call(Call),
     Deploy(Deploy),
     Shutdown,
@@ -36,13 +36,13 @@ pub struct Func {
 }
 
 pub struct VM {
-    store: Box<dyn VMStore + Send>,
-    event_receiver: Receiver<VMEvent>,
-    event_sender: Sender<VMEvent>,
+    store: Box<dyn Store + Send>,
+    event_receiver: Receiver<Event>,
+    event_sender: Sender<Event>,
 }
 
 impl VM {
-    pub fn new(store: Box<dyn VMStore + Send>) -> (Self, Sender<VMEvent>) {
+    pub fn new(store: Box<dyn Store + Send>) -> (Self, Sender<Event>) {
         let (event_sender, event_receiver) = tokio::sync::mpsc::channel(1024);
         (
             Self {
@@ -57,9 +57,9 @@ impl VM {
     pub async fn run(mut self) {
         while let Some(event) = self.event_receiver.recv().await {
             match event {
-                VMEvent::Call(call_fn) => self.call_fn(call_fn).await,
-                VMEvent::Deploy(deploy_fn) => self.deploy_fn(deploy_fn).await,
-                VMEvent::Shutdown => {
+                Event::Call(call_fn) => self.call_fn(call_fn).await,
+                Event::Deploy(deploy_fn) => self.deploy_fn(deploy_fn).await,
+                Event::Shutdown => {
                     break;
                 }
             }
@@ -101,17 +101,19 @@ impl VM {
     async fn call_in_background(
         func: Func,
         args: serde_json::Value,
-        event_sender: Sender<VMEvent>,
+        event_sender: Sender<Event>,
     ) -> anyhow::Result<serde_json::Value> {
+        use wasmtime::Store;
+
         // Create a new instance
         let engine = Engine::new(Config::default().async_support(true))?;
-        let mut store = WASMStore::new(&engine, event_sender);
+        let mut store = Store::new(&engine, event_sender);
         let module = Module::new(&engine, &func.code)?;
         let mut linker = Linker::new(&engine);
         linker.func_wrap7_async(
                 "env",
                 "__ouroboros__call_fn",
-                move |mut caller: Caller<'_, Sender<VMEvent>>,
+                move |mut caller: Caller<'_, Sender<Event>>,
                       lambda_ptr: i32,
                       lambda_size: i32,
                       args_ptr: i32,
@@ -250,7 +252,7 @@ impl VM {
                             // Call the function
                             let (responder, response) = oneshot::channel();
                             let send_result = sender
-                                .send(VMEvent::Call(Call {
+                                .send(Event::Call(Call {
                                     name: lambda.n,
                                     args: serde_json::to_value(&captured_args).unwrap(), // FIXME: Bad unwrap
                                     responder,
@@ -415,7 +417,7 @@ mod test {
 
     use ouroboros::{Lambda, A, B};
 
-    use crate::{store::InMemoryStore, Call, Deploy, Func, VMEvent, VM};
+    use crate::{store::InMemoryStore, Call, Deploy, Event, Func, VM};
 
     #[tokio::test]
     async fn test_map() -> anyhow::Result<()> {
@@ -424,7 +426,7 @@ mod test {
         let vm_run_handle = tokio::spawn(async { vm.run().await });
 
         vm_sender
-            .send(VMEvent::Deploy(Deploy {
+            .send(Event::Deploy(Deploy {
                 func: Func {
                     name: "mul_u32".to_string(),
                     entrypoint: "__entrypoint__mul_u32".to_string(),
@@ -437,7 +439,7 @@ mod test {
             .await?;
 
         vm_sender
-            .send(VMEvent::Deploy(Deploy {
+            .send(Event::Deploy(Deploy {
                 func: Func {
                     name: "map".to_string(),
                     entrypoint: "__entrypoint__map".to_string(),
@@ -458,7 +460,7 @@ mod test {
         println!("$ external_call: map");
         let (responder, response) = tokio::sync::oneshot::channel();
         vm_sender
-            .send(VMEvent::Call(Call {
+            .send(Event::Call(Call {
                 name: "map".to_string(),
                 args: map_args_json,
                 responder,
@@ -468,7 +470,7 @@ mod test {
         let resp = response.await?;
         println!("$ external_call: ret={:?}", resp);
 
-        vm_sender.send(VMEvent::Shutdown).await?;
+        vm_sender.send(Event::Shutdown).await?;
         vm_run_handle.await?;
 
         Ok(())
@@ -481,7 +483,7 @@ mod test {
         let vm_run_handle = tokio::spawn(async { vm.run().await });
 
         vm_sender
-            .send(VMEvent::Deploy(Deploy {
+            .send(Event::Deploy(Deploy {
                 func: Func {
                     name: "compose".to_string(),
                     entrypoint: "__entrypoint__compose".to_string(),
@@ -494,7 +496,7 @@ mod test {
             .await?;
 
         vm_sender
-            .send(VMEvent::Deploy(Deploy {
+            .send(Event::Deploy(Deploy {
                 func: Func {
                     name: "mul_u32".to_string(),
                     entrypoint: "__entrypoint__mul_u32".to_string(),
@@ -507,7 +509,7 @@ mod test {
             .await?;
 
         vm_sender
-            .send(VMEvent::Deploy(Deploy {
+            .send(Event::Deploy(Deploy {
                 func: Func {
                     name: "map".to_string(),
                     entrypoint: "__entrypoint__map".to_string(),
@@ -520,7 +522,7 @@ mod test {
             .await?;
 
         vm_sender
-            .send(VMEvent::Deploy(Deploy {
+            .send(Event::Deploy(Deploy {
                 func: Func {
                     name: "take".to_string(),
                     entrypoint: "__entrypoint__take".to_string(),
@@ -548,7 +550,7 @@ mod test {
         println!("$ external_call: compose");
         let (responder, response) = tokio::sync::oneshot::channel();
         vm_sender
-            .send(VMEvent::Call(Call {
+            .send(Event::Call(Call {
                 name: "compose".to_string(),
                 args: compose_args_json,
                 responder,
@@ -558,7 +560,7 @@ mod test {
         let resp = response.await?;
         println!("$ external_call: ret={:?}", resp);
 
-        vm_sender.send(VMEvent::Shutdown).await?;
+        vm_sender.send(Event::Shutdown).await?;
         vm_run_handle.await?;
 
         Ok(())
