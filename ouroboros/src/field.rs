@@ -27,6 +27,10 @@ impl NamedFields {
     pub fn is_empty(&self) -> bool {
         self.fields.is_empty()
     }
+
+    pub fn get(&self, name: &str) -> Option<&NamedField> {
+        self.fields.iter().find(|f| f.n == name)
+    }
 }
 
 impl From<Vec<NamedField>> for NamedFields {
