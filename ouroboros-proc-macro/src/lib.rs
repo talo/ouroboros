@@ -30,7 +30,9 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                                         let doc_str = lit_str.token().to_string();
                                         if doc_str.starts_with("\" ") && doc_str.ends_with('\"') {
                                             Some(doc_str[2..doc_str.len() - 1].to_string())
-                                        } else if doc_str.starts_with("\"") && doc_str.ends_with('\"') {
+                                        } else if doc_str.starts_with("\"")
+                                            && doc_str.ends_with('\"')
+                                        {
                                             Some(doc_str[1..doc_str.len() - 1].to_string())
                                         } else {
                                             None
@@ -44,24 +46,27 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                             } else {
                                 None
                             }
-                        }).collect::<Vec<_>>();
+                        })
+                        .collect::<Vec<_>>();
                     let field_name = format!("{}", field.ident.clone().unwrap());
                     let field_type = describe_type(&field.ty);
-                    if field_docs.len() == 0 { 
+                    if field_docs.len() == 0 {
                         quote! {
                             fields.push(::ouroboros::NamedField::new(#field_name, #field_type));
                         }
-                    } else { 
+                    } else {
                         let field_doc = field_docs.join("\n");
                         quote! {
-                            fields.push(::ouroboros::NamedField::with_doc(#field_doc, #field_name, #field_type));
+                            fields.push(::ouroboros::NamedField::new(#field_name, #field_type));
+                            field_docs.insert(#field_name.to_string(), #field_doc.to_string());
                         }
                     }
                 });
                 quote!(
                     let mut fields = ::std::vec::Vec::new();
+                    let mut field_docs = ::std::collections::HashMap::new();
                     #(#fields;)*
-                    ::ouroboros::Type::Record(::ouroboros::Record::new(#name_as_str, fields))
+                    ::ouroboros::Type::Record(::ouroboros::Record::with_doc(::ouroboros::RecordDocs::named(None, field_docs), #name_as_str, fields))
                 )
             }
             Fields::Unnamed(unnamed) => {

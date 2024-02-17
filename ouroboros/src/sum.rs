@@ -75,14 +75,12 @@ impl EnumVariant {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Optional {
-    pub doc: Option<String>,
     pub t: Box<Type>,
 }
 
 impl Optional {
     pub fn new(t: impl Into<Type>) -> Self {
         Self {
-            doc: None,
             t: Box::new(t.into()),
         }
     }

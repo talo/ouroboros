@@ -1,21 +1,22 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::{
     field::{Fields, UnnamedField},
     type_info::Type,
-    FieldsDocMap,
+    UnnamedFields,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Array {
-    pub doc: Option<String>,
     pub t: Box<Type>,
 }
 
 impl Array {
     pub fn new(t: impl Into<Type>) -> Self {
         Self {
-            doc: None,
             t: Box::new(t.into()),
         }
     }
@@ -39,7 +40,6 @@ impl Display for Array {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Func {
-    pub doc: Option<String>,
     pub a: Box<Type>,
     pub b: Box<Type>,
 }
@@ -47,7 +47,6 @@ pub struct Func {
 impl Func {
     pub fn new(a: impl Into<Type>, b: impl Into<Type>) -> Self {
         Self {
-            doc: None,
             a: Box::new(a.into()),
             b: Box::new(b.into()),
         }
@@ -73,14 +72,88 @@ impl Display for Func {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RecordDocMap {
+pub struct RecordDocs {
     pub record: Option<String>,
-    pub fields: FieldsDocMap,
+    pub fields: Option<RecordFieldDocs>,
+}
+
+impl RecordDocs {
+    pub fn named(record: Option<String>, fields: impl Into<HashMap<String, String>>) -> Self {
+        Self {
+            record,
+            fields: Some(RecordFieldDocs::Named(fields.into())),
+        }
+    }
+}
+
+impl From<&str> for RecordDocs {
+    fn from(record: &str) -> Self {
+        Self {
+            record: Some(record.to_string()),
+            fields: None,
+        }
+    }
+}
+
+impl<const N: usize> From<(&str, [(&str, &str); N])> for RecordDocs {
+    fn from((record, fields): (&str, [(&str, &str); N])) -> Self {
+        Self {
+            record: Some(record.to_string()),
+            fields: Some(RecordFieldDocs::Named(
+                fields
+                    .iter()
+                    .map(|(n, doc)| (n.to_string(), doc.to_string()))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+impl<const N: usize> From<[(&str, &str); N]> for RecordDocs {
+    fn from(fields: [(&str, &str); N]) -> Self {
+        Self {
+            record: None,
+            fields: Some(RecordFieldDocs::Named(
+                fields
+                    .iter()
+                    .map(|(n, doc)| (n.to_string(), doc.to_string()))
+                    .collect(),
+            )),
+        }
+    }
+}
+
+impl<const N: usize> From<(&str, [&str; N])> for RecordDocs {
+    fn from((record, fields): (&str, [&str; N])) -> Self {
+        Self {
+            record: Some(record.to_string()),
+            fields: Some(RecordFieldDocs::Unnamed(
+                fields.iter().map(|s| Some(s.to_string())).collect(),
+            )),
+        }
+    }
+}
+
+impl<const N: usize> From<[&str; N]> for RecordDocs {
+    fn from(fields: [&str; N]) -> Self {
+        Self {
+            record: None,
+            fields: Some(RecordFieldDocs::Unnamed(
+                fields.iter().map(|s| Some(s.to_string())).collect(),
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RecordFieldDocs {
+    Named(HashMap<String, String>),
+    Unnamed(Vec<Option<String>>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Record {
-    pub doc: Option<String>,
+    pub doc: Option<RecordDocs>,
     pub n: String,
     pub fields: Fields,
 }
@@ -103,7 +176,7 @@ impl Record {
     }
 
     pub fn with_doc(
-        doc: impl Into<String>,
+        doc: impl Into<RecordDocs>,
         n: impl Into<String>,
         fields: impl Into<Fields>,
     ) -> Self {
@@ -117,17 +190,6 @@ impl Record {
     pub fn is_compat(&self, value: &serde_json::Value) -> bool {
         self.fields.is_compat(value)
     }
-
-    pub fn is_documented(&self) -> bool {
-        self.doc.is_some() || self.fields.is_documented()
-    }
-
-    pub fn doc_map(&self) -> RecordDocMap {
-        RecordDocMap {
-            record: self.doc.clone(),
-            fields: self.fields.doc_map(),
-        }
-    }
 }
 
 impl Display for Record {
@@ -139,14 +201,12 @@ impl Display for Record {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tuple {
-    pub doc: Option<String>,
-    pub fields: Vec<UnnamedField>,
+    pub fields: UnnamedFields,
 }
 
 impl Tuple {
-    pub fn new(fields: impl Into<Vec<UnnamedField>>) -> Self {
+    pub fn new(fields: impl Into<UnnamedFields>) -> Self {
         Self {
-            doc: None,
             fields: fields.into(),
         }
     }

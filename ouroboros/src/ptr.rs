@@ -4,14 +4,12 @@ use crate::Type;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ptr {
-    pub doc: Option<String>,
     pub t: Box<Type>,
 }
 
 impl Ptr {
     pub fn new(t: impl Into<Type>) -> Self {
         Self {
-            doc: None,
             t: Box::new(t.into()),
         }
     }

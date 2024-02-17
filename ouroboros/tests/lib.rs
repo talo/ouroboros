@@ -1,6 +1,6 @@
 use ouroboros::{
     transpile::{cpp, python, ts},
-    NamedField, TypeName, UnnamedField,
+    TypeName, UnnamedField,
 };
 #[cfg(test)]
 use ouroboros::{Enum, EnumVariant, Record, Type, TypeInfo, Union, UnionVariant};
@@ -108,19 +108,18 @@ fn test_named_record() {
             g: vec![]
         }
     );
-    println!("{}", serde_json::to_string_pretty(&Foo::t()).unwrap());
     assert_eq!(
         Foo::t(),
-        Type::Record(Record::new(
+        Type::Record(Record::with_doc(
+            [("x", "This is the x field."), ("y", "This is another field, called the y field."), ("z", "And lastly the z field has a lot of documentation so that we can test\nmultiple lines but also other complex strings.\n\n# For example.\n\nEmpty newlines and headers need to work. And:\n\n- so\n- do\n- lists\n\nAnd ideally:\n\n```\ncode blocks should also work.\n```\n\nAnd finally:\n    We cannot forget about\n    Tab support.\n\nThat should be enough!")],
             "Foo",
             [
-                NamedField::with_doc("This is the x field.", "x", Type::U32,),
-                NamedField::with_doc(
-                    "This is another field, called the y field.",
+                ("x", Type::U32,),
+                (
                     "y",
                     Vec::<u32>::t(),
                 ),
-                NamedField::with_doc("And lastly the z field has a lot of documentation so that we can test\nmultiple lines but also other complex strings.\n\n# For example.\n\nEmpty newlines and headers need to work. And:\n\n- so\n- do\n- lists\n\nAnd ideally:\n\n```\ncode blocks should also work.\n```\n\nAnd finally:\n    We cannot forget about\n    Tab support.\n\nThat should be enough!", "z", Option::<u32>::t(),)
+                ("z", Option::<u32>::t(),)
             ]
         ))
     );

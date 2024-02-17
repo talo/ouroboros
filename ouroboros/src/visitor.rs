@@ -464,7 +464,7 @@ where
         },
         Type::Tuple(tup) => {
             v.visit_tuple(tup)?;
-            for field in &tup.fields {
+            for field in tup.fields.iter() {
                 walk_type(v, &field.t)?;
             }
             Ok(())

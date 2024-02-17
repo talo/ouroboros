@@ -81,26 +81,13 @@ impl Display for NamedFields {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedField {
-    pub doc: Option<String>,
     pub n: String,
     pub t: Type,
 }
 
 impl NamedField {
     pub fn new(n: impl Into<String>, t: Type) -> Self {
-        Self {
-            doc: None,
-            n: n.into(),
-            t,
-        }
-    }
-
-    pub fn with_doc(doc: impl Into<String>, n: impl Into<String>, t: Type) -> Self {
-        Self {
-            doc: Some(doc.into()),
-            n: n.into(),
-            t,
-        }
+        Self { n: n.into(), t }
     }
 }
 
@@ -180,25 +167,16 @@ impl Display for UnnamedFields {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnnamedField {
-    pub doc: Option<String>,
     pub t: Type,
 }
 
 impl UnnamedField {
     pub fn new(t: Type) -> Self {
-        Self { doc: None, t }
-    }
-
-    pub fn with_doc(doc: impl Into<String>, t: Type) -> Self {
-        Self {
-            doc: Some(doc.into()),
-            t,
-        }
+        Self { t }
     }
 
     pub fn name(self, n: impl Into<String>) -> NamedField {
         NamedField {
-            doc: self.doc,
             n: n.into(),
             t: self.t,
         }
@@ -209,12 +187,6 @@ impl Display for UnnamedField {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.t.fmt(f)
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum FieldsDocMap {
-    Named(HashMap<String, String>),
-    Unnamed(Vec<Option<String>>),
 }
 
 #[derive(Clone, Debug, Eq)]
@@ -256,43 +228,14 @@ impl Fields {
             _ => false,
         }
     }
-
-    pub fn is_documented(&self) -> bool {
-        match self {
-            Self::Named(fields) => fields.iter().any(|f| f.doc.is_some()),
-            Self::Unnamed(fields) => fields.iter().any(|f| f.doc.is_some()),
-        }
-    }
-
-    pub fn doc_map(&self) -> FieldsDocMap {
-        match self {
-            Self::Named(fields) => {
-                let docs = fields
-                    .iter()
-                    .filter_map(|f| f.doc.as_ref().map(|doc| (f.n.clone(), doc.clone())))
-                    .collect();
-                FieldsDocMap::Named(docs)
-            }
-            Self::Unnamed(fields) => {
-                let docs = fields.iter().map(|f| f.doc.clone()).collect();
-                FieldsDocMap::Unnamed(docs)
-            }
-        }
-    }
 }
 
 impl PartialEq for Fields {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Named(a), Self::Named(b)) if a.len() == b.len() => {
-                let a = a
-                    .iter()
-                    .map(|f| (&f.n, (&f.doc, &f.t)))
-                    .collect::<HashMap<_, _>>();
-                let b = b
-                    .iter()
-                    .map(|f| (&f.n, (&f.doc, &f.t)))
-                    .collect::<HashMap<_, _>>();
+                let a = a.iter().map(|f| (&f.n, &f.t)).collect::<HashMap<_, _>>();
+                let b = b.iter().map(|f| (&f.n, &f.t)).collect::<HashMap<_, _>>();
                 a == b
             }
             (Self::Unnamed(a), Self::Unnamed(b)) => a == b,
