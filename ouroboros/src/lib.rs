@@ -1,5 +1,6 @@
 pub use ouroboros_proc_macro::*;
 
+pub use alias::*;
 pub use features::*;
 pub use field::*;
 pub use generic::*;
@@ -11,6 +12,7 @@ pub use symbolic::*;
 pub use type_info::*;
 pub use visitor::*;
 
+pub mod alias;
 pub mod features;
 pub mod field;
 pub mod generic;

@@ -1,8 +1,8 @@
 use serde_json::{Map, Value};
 
 use crate::{
-    Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, Optional, Ptr, Record, Symbolic,
-    Tuple, Type, Union, UnionVariant,
+    Alias, Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, Optional, Ptr, Record,
+    Symbolic, Tuple, Type, Union, UnionVariant,
 };
 
 pub trait ValueVisitor {
@@ -145,6 +145,10 @@ pub trait ValueVisitor {
     }
 
     fn visit_generic(&mut self, _gen: &Generic, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_alias(&mut self, _alias: &Alias, _val: &Value) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -290,6 +294,10 @@ where
         Type::Ptr(p) => v.visit_ptr(p, val.as_str().expect("value should be pointer")),
         Type::Symbolic(sym) => v.visit_symbolic(sym, val.as_str().expect("value should be symbol")),
         Type::Generic(gen) => v.visit_generic(gen, val.as_str().expect("value should be generic")),
+        Type::Alias(alias) => {
+            v.visit_alias(alias, val)?;
+            walk_value(v, &alias.t, val)
+        }
     }
 }
 
@@ -415,6 +423,10 @@ pub trait TypeVisitor {
     fn visit_generic(&mut self, _gen: &Generic) -> Result<(), Self::Error> {
         Ok(())
     }
+
+    fn visit_alias(&mut self, _alias: &Alias) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 pub fn walk_type<V>(v: &mut V, t: &Type) -> Result<(), V::Error>
@@ -497,5 +509,9 @@ where
         }
         Type::Symbolic(sym) => v.visit_symbolic(sym),
         Type::Generic(gen) => v.visit_generic(gen),
+        Type::Alias(alias) => {
+            v.visit_alias(alias)?;
+            walk_type(v, &alias.t)
+        }
     }
 }

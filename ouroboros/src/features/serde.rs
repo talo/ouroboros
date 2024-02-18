@@ -10,7 +10,7 @@ pub mod ser {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Func, Generic, NamedFields, Ptr, RecordDocs, RecordFieldDocs, UnnamedFields,
+        Alias, Func, Generic, NamedFields, Ptr, RecordDocs, RecordFieldDocs, UnnamedFields,
     };
 
     impl Serialize for Type {
@@ -51,6 +51,7 @@ pub mod ser {
                 Self::Ptr(p) => p.serialize(serializer),
                 Self::Symbolic(sym) => sym.serialize(serializer),
                 Self::Generic(gen) => gen.serialize(serializer),
+                Self::Alias(alias) => alias.serialize(serializer),
             }
         }
     }
@@ -265,6 +266,18 @@ pub mod ser {
         }
     }
 
+    impl Serialize for Alias {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut map = serializer.serialize_map(Some(2))?;
+            map.serialize_entry("k", "alias")?;
+            map.serialize_entry("t", &self.t)?;
+            map.end()
+        }
+    }
+
     //
     // Fields
     //
@@ -325,7 +338,7 @@ pub mod de {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Func, Ptr, RecordDocs, RecordFieldDocs,
+        Alias, Func, Ptr, RecordDocs, RecordFieldDocs,
     };
 
     /// Suspended types are types that are not yet fully deserialized. While
@@ -622,6 +635,11 @@ pub mod de {
                                 let inner_type =
                                     <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?;
                                 Ok(Type::from(Ptr::new(inner_type)))
+                            }
+                            "alias" => {
+                                let inner_type =
+                                    <SuspendedType as Into<Result<Type, E>>>::into(t.clone())?;
+                                Ok(Type::from(Alias::new(n, inner_type)))
                             }
                             _ => Err(de::Error::custom(format!("unexpected kind `{k}`"))),
                         },

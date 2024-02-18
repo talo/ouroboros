@@ -40,6 +40,7 @@ impl TypenameVisitor {
             Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
+            Type::Alias(alias) => Self::visit_type(&alias.t), // FIXME: Should we transpile the alias?
         }
     }
 
@@ -267,6 +268,7 @@ impl TypedefVisitor {
             Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
+            Type::Alias(alias) => Self::visit_type(&alias.t), // FIXME: Should we transpile the alias?
         }
     }
 

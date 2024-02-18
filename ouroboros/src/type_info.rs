@@ -5,7 +5,7 @@ use crate::{
     product::{Array, Record, Tuple},
     sum::{Enum, Optional, Union},
     symbolic::Symbolic,
-    Func, Generic, Ptr,
+    Alias, Func, Generic, Ptr,
 };
 
 pub trait TypeInfo {
@@ -66,6 +66,7 @@ pub enum Type {
     Ptr(Ptr),
     Symbolic(Symbolic),
     Generic(Generic),
+    Alias(Alias),
 }
 
 impl Type {
@@ -96,6 +97,7 @@ impl Type {
             Self::Ptr(_) => "@",
             Self::Symbolic(sym) => &sym.n,
             Self::Generic(gen) => &gen.n,
+            Self::Alias(alias) => &alias.n,
         }
     }
 
@@ -126,6 +128,7 @@ impl Type {
             Self::Ptr(p) => p.is_compat(value),
             Self::Symbolic(sym) => sym.is_compat(value),
             Self::Generic(gen) => gen.is_compat(value),
+            Self::Alias(alias) => alias.t.is_compat(value),
         }
     }
 }
@@ -187,6 +190,12 @@ impl From<Symbolic> for Type {
 impl From<Generic> for Type {
     fn from(t: Generic) -> Self {
         Self::Generic(t)
+    }
+}
+
+impl From<Alias> for Type {
+    fn from(t: Alias) -> Self {
+        Self::Alias(t)
     }
 }
 
@@ -468,6 +477,7 @@ impl Display for Type {
             Self::Ptr(p) => p.fmt(f),
             Self::Symbolic(sym) => sym.fmt(f),
             Self::Generic(gen) => gen.fmt(f),
+            Self::Alias(alias) => alias.fmt(f),
         }
     }
 }
