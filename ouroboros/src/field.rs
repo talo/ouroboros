@@ -3,6 +3,7 @@ use std::{
     fmt::{self, Display, Formatter},
     slice::Iter,
 };
+use std::vec::IntoIter;
 
 use crate::type_info::Type;
 
@@ -115,6 +116,9 @@ impl UnnamedFields {
 
     pub fn iter(&self) -> Iter<'_, UnnamedField> {
         self.fields.iter()
+    }
+    pub fn into_iter(self) -> IntoIter<UnnamedField> {
+        self.fields.into_iter()
     }
 
     pub fn is_empty(&self) -> bool {
