@@ -14,11 +14,11 @@ impl Generic {
         Self { n: n.into() }
     }
 
-    pub fn is_compat(&self, _value: &serde_json::Value) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         // Everything is compatible with a generic. However, consider that once
         // a generic is resolved, it is no longer compatible with anything. This
         // check needs to be done at a higher-level.
-        true
+        value.is_some()
     }
 }
 

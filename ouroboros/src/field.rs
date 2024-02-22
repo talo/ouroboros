@@ -1,9 +1,9 @@
+use std::vec::IntoIter;
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
     slice::Iter,
 };
-use std::vec::IntoIter;
 
 use crate::type_info::Type;
 
@@ -208,28 +208,33 @@ impl Fields {
         Self::Unnamed(fields.into())
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        match self {
-            Self::Unnamed(unnamed) if value.is_array() => value
-                .as_array()
-                .map(|array| {
-                    array.len() >= unnamed.len()
-                        && unnamed
-                            .iter()
-                            .enumerate()
-                            .all(|(i, f)| array.get(i).map(|v| f.t.is_compat(v)).unwrap_or(false))
-                })
-                .unwrap_or(false),
-            Self::Named(named) if value.is_object() => value
-                .as_object()
-                .map(|object| {
-                    object.len() >= named.len()
-                        && named
-                            .iter()
-                            .all(|f| object.get(&f.n).map(|v| f.t.is_compat(v)).unwrap_or(false))
-                })
-                .unwrap_or(false),
-            _ => false,
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => match self {
+                Self::Unnamed(unnamed) if value.is_array() => value
+                    .as_array()
+                    .map(|array| {
+                        array.len() >= unnamed.len()
+                            && unnamed.iter().enumerate().all(|(i, f)| match array.get(i) {
+                                Some(v) if f.t.is_compat(Some(v)) => true,
+                                Some(_) => false,
+                                None => false,
+                            })
+                    })
+                    .unwrap_or(false),
+                Self::Named(named) if value.is_object() => value
+                    .as_object()
+                    .map(|object| {
+                        named.iter().all(|f| match object.get(&f.n) {
+                            Some(v) if f.t.is_compat(Some(v)) => true,
+                            Some(_) => false,
+                            None => f.t.is_compat(None),
+                        })
+                    })
+                    .unwrap_or(false),
+                _ => false,
+            },
+            None => false,
         }
     }
 }
