@@ -239,10 +239,7 @@ impl Fields {
                     _ => false ,
                 }
             },
-            None => {
-
-                false
-            },
+            None => false,
         }
     }
 }
