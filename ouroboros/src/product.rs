@@ -58,7 +58,7 @@ impl Func {
     }
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        let val = match value {
+        match value {
             Some(value) => {
                 value.is_object() &&
                 value
@@ -68,9 +68,7 @@ impl Func {
                     .unwrap_or(false)
             }
             None => false
-        };
-        println!("Func::is_compat({:?} => {})", value, val);
-        val
+        }
     }
 }
 
@@ -225,7 +223,7 @@ impl Tuple {
     }
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        let val = match value {
+        match value {
             Some(value) => {
                 value.is_array()
                     && value
@@ -241,9 +239,7 @@ impl Tuple {
                         .unwrap_or(false)
             }
             None => false,
-        };
-        println!("Tuple::is_compat({:?})", val);
-        val
+        }
     }
 }
 
