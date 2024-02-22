@@ -21,13 +21,18 @@ impl Array {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        value.is_array()
-            && value
-                .as_array()
-                .map(|a| a.iter().all(|v| self.t.is_compat(v)))
-                .unwrap_or(false)
-    }
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => {
+                value.is_array()
+                    && value
+                        .as_array()
+                        .map(|a| a.iter().all(|v| self.t.is_compat(Some(v))))
+                        .unwrap_or(false)
+            }
+            None => false,
+        }
+    }        
 }
 
 impl Display for Array {
@@ -52,12 +57,20 @@ impl Func {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        value
-            .as_object()
-            .and_then(|object| object.get("λ"))
-            .map(|n| n.is_string())
-            .unwrap_or(false)
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        let val = match value {
+            Some(value) => {
+                value.is_object() &&
+                value
+                    .as_object()
+                    .and_then(|object| object.get("λ"))
+                    .map(|n| n.is_string())
+                    .unwrap_or(false)
+            }
+            None => false
+        };
+        println!("Func::is_compat({:?} => {})", value, val);
+        val
     }
 }
 
@@ -187,7 +200,7 @@ impl Record {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         self.fields.is_compat(value)
     }
 }
@@ -211,19 +224,26 @@ impl Tuple {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        value.is_array()
-            && value
-                .as_array()
-                .map(|arr| {
-                    arr.len() >= self.fields.len()
-                        && self
-                            .fields
-                            .iter()
-                            .enumerate()
-                            .all(|(i, f)| arr.get(i).map(|v| f.t.is_compat(v)).unwrap_or(false))
-                })
-                .unwrap_or(false)
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        let val = match value {
+            Some(value) => {
+                value.is_array()
+                    && value
+                        .as_array()
+                        .map(|arr| {
+                            arr.len() >= self.fields.len()
+                                && self
+                                    .fields
+                                    .iter()
+                                    .enumerate()
+                                    .all(|(i, f)| f.t.is_compat(arr.get(i)))
+                        })
+                        .unwrap_or(false)
+            }
+            None => false,
+        };
+        println!("Tuple::is_compat({:?})", val);
+        val
     }
 }
 

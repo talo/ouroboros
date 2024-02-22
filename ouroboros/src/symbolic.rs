@@ -14,8 +14,11 @@ impl Symbolic {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        value.is_string()
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match { value } {
+            Some(value) => value.is_string(),
+            None => false
+        }
     }
 }
 

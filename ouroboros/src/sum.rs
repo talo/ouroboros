@@ -18,18 +18,23 @@ impl Enum {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        // Stringy compat
-        (value.is_string()
-            && value.as_str().map(|v| self
-                .variants
-                .iter()
-                .any(|variant| v == variant.n)).unwrap_or(false))
-            || // Const-value compat
-            (value.is_u64()
-                && value.as_u64().map(|v| self.variants.iter().any(|variant| 
-                    variant.v.map(|u| u == v as u8).unwrap_or(false)
-                )).unwrap_or(false))
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => {
+                // String compat
+                (value.is_string()
+                && value.as_str().map(|v| self
+                    .variants
+                    .iter()
+                    .any(|variant| v == variant.n)).unwrap_or(false))
+                || // Const-value compat
+                (value.is_u64()
+                    && value.as_u64().map(|v| self.variants.iter().any(|variant| 
+                        variant.v.map(|u| u == v as u8).unwrap_or(false)
+                    )).unwrap_or(false))
+            }
+            None => false
+        }
     }
 }
 
@@ -85,8 +90,11 @@ impl Optional {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        value.is_null() || self.t.is_compat(value)
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => value.is_null() || self.t.is_compat(Some(value)),
+            None => true,
+        }
     }
 }
 
@@ -113,23 +121,30 @@ impl Union {
         }
     }
 
-    pub fn is_compat(&self, value: &serde_json::Value) -> bool {
-        // Stringy compat
-        (value.is_string()
-            && value.as_str().map(|s| self
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        let val = match value {
+            Some(value) => {
+                (
+                value.is_string() && value.as_str().map(|s| self
                 .variants
                 .iter()
-                .any(|variant|  s == variant.n)).unwrap_or(false))
+                .any(|variant|  s == variant.n)).unwrap_or(false)
+                )
                 || // Variant compat
                 (
                     value.is_object() && value.as_object().map(|object| {
                         self.variants.iter().any(|variant| {
                             object.get(&variant.n)
-                                .and_then(|object_fields| variant.fields.as_ref().map(|variant_fields| variant_fields.is_compat(object_fields)))
+                                .and_then(|object_fields| variant.fields.as_ref().map(|variant_fields| variant_fields.is_compat(Some(object_fields))))
                                 .unwrap_or(false)
                         })
                     }).unwrap_or(false)    
                 )
+            }
+            None => false,
+        };
+        println!("Union::is_compat({:?}) => {}", value, val);
+        val
     }
 }
 

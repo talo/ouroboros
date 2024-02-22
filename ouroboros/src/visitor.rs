@@ -157,7 +157,7 @@ pub fn walk_value<V>(v: &mut V, t: &Type, val: &Value) -> Result<(), V::Error>
 where
     V: ValueVisitor,
 {
-    if !t.is_compat(val) {
+    if !t.is_compat(Some(val)) {
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
@@ -280,7 +280,7 @@ where
                             variant
                                 .fields
                                 .as_ref()
-                                .map(|variant_fields| variant_fields.is_compat(object_fields))
+                                .map(|variant_fields| variant_fields.is_compat(Some(object_fields)))
                         })
                         .unwrap_or(false)
                     {
