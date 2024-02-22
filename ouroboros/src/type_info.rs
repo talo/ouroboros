@@ -105,17 +105,39 @@ impl Type {
         match self {
             Self::Unit => value.map_or(false, |v| v.is_null()),
             Self::Bool => value.map_or(false, |v| v.is_boolean()),
-            Self::I8 => value.map_or(false, |v| v.as_i64().map(|v| i8::MIN as i64 <= v  && v <= i8::MAX as i64).unwrap_or(false)),
-            Self::I16 => value.map_or(false, |v| v.as_i64().map(|v| i16::MIN as i64 <= v && v <= i16::MAX as i64).unwrap_or(false)),
-            Self::I32 => value.map_or(false, |v| v.as_i64().map(|v| i32::MIN as i64 <= v && v <= i32::MAX as i64).unwrap_or(false)),
+            Self::I8 => value.map_or(false, |v| {
+                v.as_i64()
+                    .map(|v| i8::MIN as i64 <= v && v <= i8::MAX as i64)
+                    .unwrap_or(false)
+            }),
+            Self::I16 => value.map_or(false, |v| {
+                v.as_i64()
+                    .map(|v| i16::MIN as i64 <= v && v <= i16::MAX as i64)
+                    .unwrap_or(false)
+            }),
+            Self::I32 => value.map_or(false, |v| {
+                v.as_i64()
+                    .map(|v| i32::MIN as i64 <= v && v <= i32::MAX as i64)
+                    .unwrap_or(false)
+            }),
             Self::I64 => value.map_or(false, |v| v.is_i64()),
-            Self::I128 => value.map_or(false, |v| v.is_i64()),  
-            Self::U8 => value.map_or(false, |v| v.as_u64().map(|v| v <= u8::MAX as u64).unwrap_or(false)),
-            Self::U16 => value.map_or(false, |v| v.as_u64().map(|v| v <= u16::MAX as u64).unwrap_or(false)),
-            Self::U32 => value.map_or(false, |v| v.as_u64().map(|v| v <= u32::MAX as u64).unwrap_or(false)),
+            Self::I128 => value.map_or(false, |v| v.is_i64()),
+            Self::U8 => value.map_or(false, |v| {
+                v.as_u64().map(|v| v <= u8::MAX as u64).unwrap_or(false)
+            }),
+            Self::U16 => value.map_or(false, |v| {
+                v.as_u64().map(|v| v <= u16::MAX as u64).unwrap_or(false)
+            }),
+            Self::U32 => value.map_or(false, |v| {
+                v.as_u64().map(|v| v <= u32::MAX as u64).unwrap_or(false)
+            }),
             Self::U64 => value.map_or(false, |v| v.is_u64()),
             Self::U128 => value.map_or(false, |v| v.is_u64()),
-            Self::F32 => value.map_or(false, |v| v.as_f64().map(|v| f32::MIN as f64 <= v && v <= f32::MAX as f64).unwrap_or(false)),
+            Self::F32 => value.map_or(false, |v| {
+                v.as_f64()
+                    .map(|v| f32::MIN as f64 <= v && v <= f32::MAX as f64)
+                    .unwrap_or(false)
+            }),
             Self::F64 => value.map_or(false, |v| v.is_f64()),
             Self::String => value.map_or(false, |v| v.is_string()),
             Self::Array(arr) => arr.is_compat(value),

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::{Display, self, Formatter}};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::{field::Fields, type_info::Type};
 
@@ -33,7 +36,7 @@ impl Enum {
                         variant.v.map(|u| u == v as u8).unwrap_or(false)
                     )).unwrap_or(false))
             }
-            None => false
+            None => false,
         }
     }
 }
@@ -122,7 +125,7 @@ impl Union {
     }
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        let val = match value {
+        match value {
             Some(value) => {
                 (
                 value.is_string() && value.as_str().map(|s| self
@@ -142,9 +145,7 @@ impl Union {
                 )
             }
             None => false,
-        };
-        println!("Union::is_compat({:?}) => {}", value, val);
-        val
+        }    
     }
 }
 

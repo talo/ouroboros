@@ -210,34 +210,29 @@ impl Fields {
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         match value {
-            Some(value) => {
-                match self {
-                    Self::Unnamed(unnamed) if value.is_array() => {
-                        value.as_array()
-                        .map(|array| {
-                            array.len() >= unnamed.len()
-                                && unnamed.iter().enumerate().all(|(i, f)| match array.get(i) {
-                                    Some(v) if f.t.is_compat(Some(v)) => true,
-                                    Some(_) => false,
-                                    None => false
-                                })
+            Some(value) => match self {
+                Self::Unnamed(unnamed) if value.is_array() => value
+                    .as_array()
+                    .map(|array| {
+                        array.len() >= unnamed.len()
+                            && unnamed.iter().enumerate().all(|(i, f)| match array.get(i) {
+                                Some(v) if f.t.is_compat(Some(v)) => true,
+                                Some(_) => false,
+                                None => false,
+                            })
+                    })
+                    .unwrap_or(false),
+                Self::Named(named) if value.is_object() => value
+                    .as_object()
+                    .map(|object| {
+                        named.iter().all(|f| match object.get(&f.n) {
+                            Some(v) if f.t.is_compat(Some(v)) => true,
+                            Some(_) => false,
+                            None => f.t.is_compat(None),
                         })
-                        .unwrap_or(false)
-                    },
-                    Self::Named(named) if value.is_object() => {
-                        value
-                        .as_object()
-                        .map(|object| {
-                            named.iter().all(|f| match object.get(&f.n) {
-                                    Some(v) if f.t.is_compat(Some(v)) => true,
-                                    Some(_) => false,
-                                    None => f.t.is_compat(None)
-                                })
-                        })
-                        .unwrap()
-                    },
-                    _ => false ,
-                }
+                    })
+                    .unwrap_or(false),
+                _ => false,
             },
             None => false,
         }
