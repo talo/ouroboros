@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{field::Fields, type_info::Type};
+use crate::{field::Fields, type_info::Type, Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Enum {
@@ -21,22 +21,38 @@ impl Enum {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
             Some(value) => {
-                // String compat
-                (value.is_string()
-                && value.as_str().map(|v| self
-                    .variants
-                    .iter()
-                    .any(|variant| v == variant.n)).unwrap_or(false))
-                || // Const-value compat
-                (value.is_u64()
-                    && value.as_u64().map(|v| self.variants.iter().any(|variant| 
-                        variant.v.map(|u| u == v as u8).unwrap_or(false)
-                    )).unwrap_or(false))
+                if let Some(x) = value.as_str() {
+                    self.variants
+                        .iter()
+                        .any(|variant| variant.n == x)
+                        .then_some(())
+                        .ok_or(Error::InvalidEnum {
+                            expected: self.clone(),
+                            e: Error::UnexpectedValue { got: value.clone() }.into(),
+                        })
+                } else if let Some(x) = value.as_u64() {
+                    self.variants
+                        .iter()
+                        .any(|variant| variant.v.map(|u| u as u64 == x).unwrap_or(false))
+                        .then_some(())
+                        .ok_or(Error::InvalidEnum {
+                            expected: self.clone(),
+                            e: Error::UnexpectedValue { got: value.clone() }.into(),
+                        })
+                } else {
+                    Err(Error::InvalidEnum {
+                        expected: self.clone(),
+                        e: Error::UnexpectedValue { got: value.clone() }.into(),
+                    })
+                }
             }
-            None => false,
+            None => Err(Error::InvalidEnum {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }
@@ -93,10 +109,17 @@ impl Optional {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => value.is_null() || self.t.is_compat(Some(value)),
-            None => true,
+            None => Ok(()),
+            Some(serde_json::Value::Null) => Ok(()),
+            Some(value) => self
+                .t
+                .is_compat(Some(value))
+                .map_err(|e| Error::InvalidOptional {
+                    expected: self.clone(),
+                    e: e.into(),
+                }),
         }
     }
 }
@@ -124,28 +147,54 @@ impl Union {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
             Some(value) => {
-                (
-                value.is_string() && value.as_str().map(|s| self
-                .variants
-                .iter()
-                .any(|variant|  s == variant.n)).unwrap_or(false)
-                )
-                || // Variant compat
-                (
-                    value.is_object() && value.as_object().map(|object| {
-                        self.variants.iter().any(|variant| {
-                            object.get(&variant.n)
-                                .and_then(|object_fields| variant.fields.as_ref().map(|variant_fields| variant_fields.is_compat(Some(object_fields))))
-                                .unwrap_or(false)
+                if let Some(string) = value.as_str() {
+                    self.variants
+                        .iter()
+                        .any(|variant| variant.n == string)
+                        .then_some(())
+                        .ok_or(Error::InvalidUnion {
+                            expected: self.clone(),
+                            e: Error::UnexpectedValue { got: value.clone() }.into(),
                         })
-                    }).unwrap_or(false)    
-                )
+                } else if let Some(object) = value.as_object() {
+                    self.variants
+                        .iter()
+                        .map(|variant| {
+                            object.get(&variant.n).map(|object_fields| {
+                                variant
+                                    .fields
+                                    .as_ref()
+                                    .map(|variant_fields| {
+                                        variant_fields.is_compat(Some(object_fields)).map_err(|e| {
+                                            Error::InvalidUnion {
+                                                expected: self.clone(),
+                                                e: e.into(),
+                                            }
+                                        })
+                                    })
+                                    .unwrap_or(Ok(()))
+                            })
+                        })
+                        .collect::<Option<Result<_>>>()
+                        .unwrap_or(Err(Error::InvalidUnion {
+                            expected: self.clone(),
+                            e: Error::UnexpectedValue { got: value.clone() }.into(),
+                        }))
+                } else {
+                    Err(Error::InvalidUnion {
+                        expected: self.clone(),
+                        e: Error::UnexpectedValue { got: value.clone() }.into(),
+                    })
+                }
             }
-            None => false,
-        }    
+            None => Err(Error::InvalidUnion {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
+        }
     }
 }
 

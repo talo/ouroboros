@@ -5,7 +5,7 @@ use std::{
     slice::Iter,
 };
 
-use crate::type_info::Type;
+use crate::{Error, Result, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedFields {
@@ -208,33 +208,55 @@ impl Fields {
         Self::Unnamed(fields.into())
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
             Some(value) => match self {
-                Self::Unnamed(unnamed) if value.is_array() => value
+                Self::Unnamed(unnamed) => value
                     .as_array()
-                    .map(|array| {
-                        array.len() >= unnamed.len()
-                            && unnamed.iter().enumerate().all(|(i, f)| match array.get(i) {
-                                Some(v) if f.t.is_compat(Some(v)) => true,
-                                Some(_) => false,
-                                None => false,
-                            })
-                    })
-                    .unwrap_or(false),
-                Self::Named(named) if value.is_object() => value
-                    .as_object()
-                    .map(|object| {
-                        named.iter().all(|f| match object.get(&f.n) {
-                            Some(v) if f.t.is_compat(Some(v)) => true,
-                            Some(_) => false,
-                            None => f.t.is_compat(None),
+                    .and_then(|array| {
+                        (array.len() == unnamed.len()).then(|| {
+                            unnamed
+                                .iter()
+                                .zip(array.iter())
+                                .enumerate()
+                                .map(|(i, (f, v))| {
+                                    f.t.is_compat(Some(v))
+                                        .map_err(|e| Error::InvalidUnnamedField {
+                                            index: i,
+                                            e: e.into(),
+                                        })
+                                })
+                                .collect::<Result<_>>()
                         })
                     })
-                    .unwrap_or(false),
-                _ => false,
+                    .unwrap_or(Err(Error::InvalidFields {
+                        expected: self.clone(),
+                        e: Error::UnexpectedValue { got: value.clone() }.into(),
+                    })),
+                Self::Named(named) => value
+                    .as_object()
+                    .map(|object| {
+                        named
+                            .iter()
+                            .map(|f| {
+                                f.t.is_compat(object.get(&f.n)).map_err(|e| {
+                                    Error::InvalidNamedField {
+                                        index: f.n.to_string(),
+                                        e: e.into(),
+                                    }
+                                })
+                            })
+                            .collect::<Result<_>>()
+                    })
+                    .unwrap_or(Err(Error::InvalidFields {
+                        expected: self.clone(),
+                        e: Error::UnexpectedValue { got: value.clone() }.into(),
+                    })),
             },
-            None => false,
+            None => Err(Error::InvalidFields {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }

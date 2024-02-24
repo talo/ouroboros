@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Type, TypeInfo, TypeName};
+use crate::{Result, Type, TypeInfo, TypeName};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Generic {
@@ -14,11 +14,11 @@ impl Generic {
         Self { n: n.into() }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, _value: Option<&serde_json::Value>) -> Result<()> {
         // Everything is compatible with a generic. However, consider that once
         // a generic is resolved, it is no longer compatible with anything. This
         // check needs to be done at a higher-level.
-        value.is_some()
+        Ok(())
     }
 }
 

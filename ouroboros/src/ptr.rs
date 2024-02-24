@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::Type;
+use crate::{Error, Result, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ptr {
@@ -14,10 +14,22 @@ impl Ptr {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match { value } {
-            Some(value) => value.is_string(),
-            None => false,
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
+        match value {
+            Some(value) => {
+                if value.is_string() {
+                    Ok(())
+                } else {
+                    Err(Error::InvalidPtr {
+                        expected: self.clone(),
+                        e: Error::UnexpectedValue { got: value.clone() }.into(),
+                    })
+                }
+            }
+            None => Err(Error::InvalidPtr {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }

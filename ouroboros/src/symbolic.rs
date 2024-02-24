@@ -1,5 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
+use crate::{Error, Result};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Symbolic {
     pub doc: Option<String>,
@@ -14,10 +16,22 @@ impl Symbolic {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match { value } {
-            Some(value) => value.is_string(),
-            None => false,
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
+        match value {
+            Some(value) => {
+                if value.is_string() {
+                    Ok(())
+                } else {
+                    Err(Error::InvalidSymbolic {
+                        expected: self.clone(),
+                        e: Error::UnexpectedValue { got: value.clone() }.into(),
+                    })
+                }
+            }
+            None => Err(Error::InvalidSymbolic {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }

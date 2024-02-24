@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::Type;
+use crate::{Error, Result, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Alias {
@@ -16,16 +16,19 @@ impl Alias {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match { value } {
-            Some(value) => self.t.is_compat(Some(value)),
-            None => false,
-        }
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
+        self.t.is_compat(value).map_err(|e| Error::InvalidAlias {
+            expected: self.clone(),
+            e: e.into(),
+        })
     }
 }
 
 impl Display for Alias {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.n.fmt(f)
+        self.n.fmt(f)?;
+        "(".fmt(f)?;
+        self.t.fmt(f)?;
+        ")".fmt(f)
     }
 }

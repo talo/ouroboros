@@ -6,7 +6,7 @@ use std::{
 use crate::{
     field::{Fields, UnnamedField},
     type_info::Type,
-    UnnamedFields,
+    Error, Result, UnnamedFields,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,16 +21,27 @@ impl Array {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => {
-                value.is_array()
-                    && value
-                        .as_array()
-                        .map(|a| a.iter().all(|v| self.t.is_compat(Some(v))))
-                        .unwrap_or(false)
-            }
-            None => false,
+            Some(value) => value
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .map(|v| self.t.is_compat(Some(v)))
+                        .collect::<Result<_>>()
+                        .map_err(|e| Error::InvalidArray {
+                            expected: self.clone(),
+                            e: e.into(),
+                        })
+                })
+                .unwrap_or(Err(Error::InvalidArray {
+                    expected: self.clone(),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })),
+            None => Err(Error::InvalidArray {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }
@@ -57,17 +68,21 @@ impl Func {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => {
-                value.is_object()
-                    && value
-                        .as_object()
-                        .and_then(|object| object.get("λ"))
-                        .map(|n| n.is_string())
-                        .unwrap_or(false)
-            }
-            None => false,
+            Some(value) => value
+                .as_object()
+                .and_then(|object| object.get("λ"))
+                .map(|n| n.is_string())
+                .map(|_| Ok(()))
+                .unwrap_or(Err(Error::InvalidFunc {
+                    expected: self.clone(),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })),
+            None => Err(Error::InvalidFunc {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }
@@ -198,8 +213,13 @@ impl Record {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        self.fields.is_compat(value)
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
+        self.fields
+            .is_compat(value)
+            .map_err(|e| Error::InvalidRecord {
+                expected: self.clone(),
+                e: e.into(),
+            })
     }
 }
 
@@ -222,23 +242,38 @@ impl Tuple {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => {
-                value.is_array()
-                    && value
-                        .as_array()
-                        .map(|arr| {
-                            arr.len() >= self.fields.len()
-                                && self
-                                    .fields
-                                    .iter()
-                                    .enumerate()
-                                    .all(|(i, f)| f.t.is_compat(arr.get(i)))
-                        })
-                        .unwrap_or(false)
-            }
-            None => false,
+            Some(value) => value
+                .as_array()
+                .and_then(|array| {
+                    (array.len() == self.fields.len()).then(|| {
+                        self.fields
+                            .iter()
+                            .zip(array.iter())
+                            .enumerate()
+                            .map(|(i, (f, v))| {
+                                f.t.is_compat(Some(v))
+                                    .map_err(|e| Error::InvalidUnnamedField {
+                                        index: i,
+                                        e: e.into(),
+                                    })
+                            })
+                            .collect::<Result<_>>()
+                    })
+                })
+                .unwrap_or(Err(Error::InvalidFields {
+                    expected: Fields::Unnamed(self.fields.clone()),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                }))
+                .map_err(|e| Error::InvalidTuple {
+                    expected: self.clone(),
+                    e: e.into(),
+                }),
+            None => Err(Error::InvalidTuple {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }
