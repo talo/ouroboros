@@ -1300,13 +1300,11 @@ name = "ouroboros"
 version = "0.1.0"
 dependencies = [
  "async-graphql",
- "num-traits",
  "ouroboros-proc-macro",
  "serde",
  "serde_json",
  "sqlx",
  "thiserror",
- "tracing",
 ]
 
 [[package]]
