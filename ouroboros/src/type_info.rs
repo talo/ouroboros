@@ -138,7 +138,11 @@ impl Type {
                     .map(|v| f32::MIN as f64 <= v && v <= f32::MAX as f64)
                     .unwrap_or(false)
             }),
-            Self::F64 => value.map_or(false, |v| v.is_f64()),
+            Self::F64 => value.map_or(false, |v| {
+                v.as_f64()
+                    .map(|v| (f64::MIN..=f64::MAX).contains(&v))
+                    .unwrap_or(false)
+            }),
             Self::String => value.map_or(false, |v| v.is_string()),
             Self::Array(arr) => arr.is_compat(value),
             Self::Func(func) => func.is_compat(value),
