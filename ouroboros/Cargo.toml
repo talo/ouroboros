@@ -16,7 +16,8 @@ serde_json = { version = "1.0", optional = true }
 sqlx = { version = "0.7.3", features = ["postgres"], optional = true }
 
 [features]
-default = ["graphql", "serde", "sqlx"]
+default = ["arrow", "graphql", "serde", "sqlx"]
+arrow = []
 graphql = ["dep:async-graphql"]
 serde = ["dep:serde", "dep:serde_json"]
 sqlx = ["dep:sqlx"]
