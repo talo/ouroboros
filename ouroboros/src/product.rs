@@ -205,7 +205,8 @@ impl Record {
 
 impl Display for Record {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.n.fmt(f)
+        self.n.fmt(f)?;
+        self.fields.fmt(f)
     }
 }
 
