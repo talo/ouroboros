@@ -10,4 +10,4 @@ crate-type = ["cdylib", "rlib"]
 ouroboros = { path = "../ouroboros" }
 ouroboros-wasm = { path = "../ouroboros-wasm" }
 serde = { version = "1.0" }
-serde_json = { version = "1.0" }
+serde_json = { version = "1.0", features = ['preserve_order'] }
