@@ -259,6 +259,20 @@ impl Fields {
             }),
         }
     }
+
+    pub fn as_named(&self) -> Option<&NamedFields> {
+        match self {
+            Self::Named(named) => Some(named),
+            _ => None,
+        }
+    }
+
+    pub fn as_unnamed(&self) -> Option<&UnnamedFields> {
+        match self {
+            Self::Unnamed(unnamed) => Some(unnamed),
+            _ => None,
+        }
+    }
 }
 
 impl PartialEq for Fields {

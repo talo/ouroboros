@@ -135,6 +135,18 @@ impl Union {
         }
     }
 
+    pub fn with_doc(
+        doc: impl Into<String>,
+        n: impl Into<String>,
+        variants: impl Into<Vec<UnionVariant>>,
+    ) -> Self {
+        Self {
+            doc: Some(doc.into()),
+            n: n.into(),
+            variants: variants.into(),
+        }
+    }
+
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
             Some(value) => {

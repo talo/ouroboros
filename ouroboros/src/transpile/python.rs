@@ -611,9 +611,12 @@ class Foo:
 
     #[test]
     fn simple_tuple() {
-        let t = Tuple::new([UnnamedField::new(Type::U8), UnnamedField::new(Type::U8)]);
+        let t = Type::from(Tuple::new([
+            UnnamedField::new(Type::U8),
+            UnnamedField::new(Type::U8),
+        ]));
 
-        assert_eq!(TypedefVisitor::visit_tuple(&t), r#"tuple[int, int]"#);
+        assert_eq!(TypedefVisitor::visit_type(&t), r#"tuple[int, int]"#);
     }
 
     #[test]
