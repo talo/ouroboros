@@ -32,6 +32,27 @@ impl NamedFields {
     pub fn get(&self, name: &str) -> Option<&NamedField> {
         self.fields.iter().find(|f| f.n == name)
     }
+
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => value.as_object().map_or(false, |object| {
+                self.iter().all(|f| match object.get(&f.n) {
+                    Some(v) => f.t.is_compat(Some(v)),
+                    None => f.t.is_compat(None),
+                })
+            }),
+            _ => false,
+        }
+    }
+
+    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => value.as_object().map_or(false, |object| {
+                self.iter().all(|f| object.contains_key(&f.n))
+            }),
+            _ => false,
+        }
+    }
 }
 
 impl From<Vec<NamedField>> for NamedFields {
@@ -117,12 +138,38 @@ impl UnnamedFields {
     pub fn iter(&self) -> Iter<'_, UnnamedField> {
         self.fields.iter()
     }
-    pub fn into_iter(self) -> IntoIter<UnnamedField> {
-        self.fields.into_iter()
-    }
 
     pub fn is_empty(&self) -> bool {
         self.fields.is_empty()
+    }
+
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => value.as_array().map_or(false, |arr| {
+                self.iter()
+                    .enumerate()
+                    .all(|(i, f)| f.t.is_compat(arr.get(i)))
+            }),
+            _ => false,
+        }
+    }
+
+    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match value {
+            Some(value) => value
+                .as_array()
+                .map_or(false, |arr| arr.len() >= self.len()),
+            _ => false,
+        }
+    }
+}
+
+impl IntoIterator for UnnamedFields {
+    type Item = UnnamedField;
+    type IntoIter = IntoIter<UnnamedField>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
     }
 }
 
@@ -132,10 +179,10 @@ impl From<Vec<UnnamedField>> for UnnamedFields {
     }
 }
 
-impl<'a> From<Vec<Type>> for UnnamedFields {
+impl From<Vec<Type>> for UnnamedFields {
     fn from(fields: Vec<Type>) -> Self {
         Self {
-            fields: fields.into_iter().map(|t| UnnamedField::new(t)).collect(),
+            fields: fields.into_iter().map(UnnamedField::new).collect(),
         }
     }
 }
@@ -148,10 +195,10 @@ impl<const N: usize> From<[UnnamedField; N]> for UnnamedFields {
     }
 }
 
-impl<'a, const N: usize> From<[Type; N]> for UnnamedFields {
+impl<const N: usize> From<[Type; N]> for UnnamedFields {
     fn from(fields: [Type; N]) -> Self {
         Self {
-            fields: fields.map(|t| UnnamedField::new(t)).into(),
+            fields: fields.map(UnnamedField::new).into(),
         }
     }
 }
@@ -209,32 +256,16 @@ impl Fields {
     }
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match value {
-            Some(value) => match self {
-                Self::Unnamed(unnamed) if value.is_array() => value
-                    .as_array()
-                    .map(|array| {
-                        array.len() >= unnamed.len()
-                            && unnamed.iter().enumerate().all(|(i, f)| match array.get(i) {
-                                Some(v) if f.t.is_compat(Some(v)) => true,
-                                Some(_) => false,
-                                None => false,
-                            })
-                    })
-                    .unwrap_or(false),
-                Self::Named(named) if value.is_object() => value
-                    .as_object()
-                    .map(|object| {
-                        named.iter().all(|f| match object.get(&f.n) {
-                            Some(v) if f.t.is_compat(Some(v)) => true,
-                            Some(_) => false,
-                            None => f.t.is_compat(None),
-                        })
-                    })
-                    .unwrap_or(false),
-                _ => false,
-            },
-            None => false,
+        match self {
+            Self::Unnamed(unnamed) => unnamed.is_compat(value),
+            Self::Named(named) => named.is_compat(value),
+        }
+    }
+
+    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match self {
+            Self::Unnamed(unnamed) => unnamed.is_shape_compat(value),
+            Self::Named(named) => named.is_shape_compat(value),
         }
     }
 }
@@ -283,7 +314,7 @@ impl From<Vec<UnnamedField>> for Fields {
     }
 }
 
-impl<'a> From<Vec<Type>> for Fields {
+impl From<Vec<Type>> for Fields {
     fn from(fields: Vec<Type>) -> Self {
         Self::Unnamed(fields.into())
     }
@@ -295,7 +326,7 @@ impl<const N: usize> From<[UnnamedField; N]> for Fields {
     }
 }
 
-impl<'a, const N: usize> From<[Type; N]> for Fields {
+impl<const N: usize> From<[Type; N]> for Fields {
     fn from(fields: [Type; N]) -> Self {
         Self::Unnamed(fields.into())
     }
