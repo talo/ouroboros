@@ -299,6 +299,252 @@ where
     }
 }
 
+pub trait MutableValueVisitor {
+    type Error;
+
+    fn visit_unit(&mut self, val: &Value) -> Result<(), Self::Error>;
+
+    fn visit_bool(&mut self, val: bool) -> Result<(), Self::Error>;
+
+    fn visit_u8(&mut self, val: u8) -> Result<(), Self::Error>;
+
+    fn visit_u16(&mut self, val: u16) -> Result<(), Self::Error>;
+
+    fn visit_u32(&mut self, val: u32) -> Result<(), Self::Error>;
+
+    fn visit_u64(&mut self, val: u64) -> Result<(), Self::Error>;
+
+    fn visit_u128(&mut self, val: u128) -> Result<(), Self::Error>;
+
+    fn visit_i8(&mut self, val: i8) -> Result<(), Self::Error>;
+
+    fn visit_i16(&mut self, val: i16) -> Result<(), Self::Error>;
+
+    fn visit_i32(&mut self, val: i32) -> Result<(), Self::Error>;
+
+    fn visit_i64(&mut self, val: i64) -> Result<(), Self::Error>;
+
+    fn visit_i128(&mut self, val: i128) -> Result<(), Self::Error>;
+
+    fn visit_f32(&mut self, val: f32) -> Result<(), Self::Error>;
+
+    fn visit_f64(&mut self, val: f64) -> Result<(), Self::Error>;
+
+    fn visit_string(&mut self, val: &str) -> Result<(), Self::Error>;
+
+    fn visit_array(&mut self, arr: &Array, val: &mut [Value]) -> Result<(), Self::Error>;
+
+    fn visit_func(
+        &mut self,
+        func: &Func,
+        val: &mut Lambda<Value, Value>,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_record_with_named_fields(
+        &mut self,
+        rec: &Record,
+        val: &mut Map<String, Value>,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_record_with_unnamed_fields(
+        &mut self,
+        rec: &Record,
+        val: &mut [Value],
+    ) -> Result<(), Self::Error>;
+
+    fn visit_tuple(&mut self, tup: &Tuple, val: &mut [Value]) -> Result<(), Self::Error>;
+
+    fn visit_enum_variant_string(
+        &mut self,
+        enm: &Enum,
+        var: &EnumVariant,
+        val: &str,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_enum_variant_const_value(
+        &mut self,
+        enm: &Enum,
+        var: &EnumVariant,
+        val: u8,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_optional(
+        &mut self,
+        opt: &Optional,
+        val: &mut Option<&mut Value>,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_union_variant_string(
+        &mut self,
+        union: &Union,
+        var: &UnionVariant,
+        val: &mut String,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_union_variant_fields(
+        &mut self,
+        union: &Union,
+        var: &UnionVariant,
+        val: &mut Map<String, Value>,
+    ) -> Result<(), Self::Error>;
+
+    fn visit_ptr(&mut self, ptr: &Ptr, val: &str) -> Result<(), Self::Error>;
+
+    fn visit_symbolic(&mut self, sym: &Symbolic, val: &str) -> Result<(), Self::Error>;
+
+    fn visit_generic(&mut self, gen: &Generic, val: &str) -> Result<(), Self::Error>;
+
+    fn visit_alias(&mut self, alias: &Alias, val: &Value) -> Result<(), Self::Error>;
+}
+
+pub fn walk_value_mut<V>(v: &mut V, t: &Type, val: &mut Value) -> Result<(), V::Error>
+where
+    V: MutableValueVisitor,
+{
+    if !t.is_compat(Some(val)) {
+        println!("t: {:?}", t);
+        println!("val: {:?}", val);
+        todo!()
+    }
+
+    match t {
+        // Not mutable -- these are primitives
+        Type::Unit => v.visit_unit(val),
+        Type::Bool => v.visit_bool(val.as_bool().expect("value should be bool")),
+        Type::U8 => v.visit_u8(val.as_u64().expect("value should be u8") as u8),
+        Type::U16 => v.visit_u16(val.as_u64().expect("value should be u16") as u16),
+        Type::U32 => v.visit_u32(val.as_u64().expect("value should be u32") as u32),
+        Type::U64 => v.visit_u64(val.as_u64().expect("value should be u64")),
+        Type::U128 => v.visit_u128(val.as_u64().expect("value should be u128") as u128),
+        Type::I8 => v.visit_i8(val.as_i64().expect("value should be i8") as i8),
+        Type::I16 => v.visit_i16(val.as_i64().expect("value should be i16") as i16),
+        Type::I32 => v.visit_i32(val.as_i64().expect("value should be i32") as i32),
+        Type::I64 => v.visit_i64(val.as_i64().expect("value should be i64")),
+        Type::I128 => v.visit_i128(val.as_i64().expect("value should be i128") as i128),
+        Type::F32 => v.visit_f32(val.as_f64().expect("value should be f32") as f32),
+        Type::F64 => v.visit_f64(val.as_f64().expect("value should be f64")),
+        Type::String => v.visit_string(val.as_str().expect("value should be string")),
+        Type::Array(arr) => {
+            let val = val.as_array_mut().expect("value should be array");
+            v.visit_array(arr, val)?;
+            for val in val {
+                walk_value_mut(v, &arr.t, val)?;
+            }
+            Ok(())
+        }
+        Type::Func(func) => {
+            let val = &mut serde_json::from_value::<Lambda<Value, Value>>(val.clone())
+                .expect("value should be function");
+            v.visit_func(func, val)
+        }
+        Type::Record(rec) => match &rec.fields {
+            Fields::Named(fields) => {
+                let val = val.as_object_mut().expect("value should be record");
+                v.visit_record_with_named_fields(rec, val)?;
+                for field in fields.iter() {
+                    walk_value_mut(
+                        v,
+                        &field.t,
+                        val.get_mut(&field.n)
+                            .expect("value should have record field"),
+                    )?;
+                }
+                Ok(())
+            }
+            Fields::Unnamed(fields) => {
+                let val = val.as_array_mut().expect("value should be record");
+                v.visit_record_with_unnamed_fields(rec, val)?;
+                for (i, field) in fields.iter().enumerate() {
+                    walk_value_mut(
+                        v,
+                        &field.t,
+                        val.get_mut(i).expect("value should have record field"),
+                    )?;
+                }
+                Ok(())
+            }
+        },
+        Type::Tuple(tup) => {
+            let val = val.as_array_mut().expect("value should be tuple");
+            v.visit_tuple(tup, val)?;
+            for (i, field) in tup.fields.iter().enumerate() {
+                walk_value_mut(
+                    v,
+                    &field.t,
+                    val.get_mut(i).expect("value should have tuple field"),
+                )?;
+            }
+            Ok(())
+        }
+        Type::Enum(enm) => match val {
+            Value::String(string) => {
+                for variant in &enm.variants {
+                    if string == &variant.n {
+                        return v.visit_enum_variant_string(enm, variant, string);
+                    }
+                }
+                panic!("value should be enum variant (string)")
+            }
+            Value::Number(num) => {
+                for variant in &enm.variants {
+                    if num.as_u64() == variant.v.map(|y| y as u64) {
+                        return v.visit_enum_variant_const_value(
+                            enm,
+                            variant,
+                            num.as_u64().unwrap() as u8,
+                        );
+                    }
+                }
+                panic!("value should be enum variant (const value)")
+            }
+            _ => panic!("value should be enum variant"),
+        },
+        Type::Optional(opt) => {
+            if val.is_null() {
+                v.visit_optional(opt, &mut None)
+            } else {
+                v.visit_optional(opt, &mut Some(val))?;
+                walk_value_mut(v, &opt.t, val)
+            }
+        }
+        Type::Union(union) => match val {
+            Value::String(string) => {
+                for variant in &union.variants {
+                    if variant.fields.is_none() && string == &variant.n {
+                        return v.visit_union_variant_string(union, variant, string);
+                    }
+                }
+                panic!("value should be union variant (string)")
+            }
+            Value::Object(object) => {
+                for variant in &union.variants {
+                    if object
+                        .get(&variant.n)
+                        .and_then(|object_fields| {
+                            variant
+                                .fields
+                                .as_ref()
+                                .map(|variant_fields| variant_fields.is_compat(Some(object_fields)))
+                        })
+                        .unwrap_or(false)
+                    {
+                        return v.visit_union_variant_fields(union, variant, object);
+                    }
+                }
+                panic!("value should be union variant (fields)")
+            }
+            _ => panic!("value should be union variant"),
+        },
+        Type::Ptr(p) => v.visit_ptr(p, val.as_str().expect("value should be pointer")),
+        Type::Symbolic(sym) => v.visit_symbolic(sym, val.as_str().expect("value should be symbol")),
+        Type::Generic(gen) => v.visit_generic(gen, val.as_str().expect("value should be generic")),
+        Type::Alias(alias) => {
+            v.visit_alias(alias, val)?;
+            walk_value_mut(v, &alias.t, val)
+        }
+    }
+}
+
 pub trait TypeVisitor {
     type Error;
 
