@@ -598,3 +598,99 @@ impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
+
+#[cfg(test)]
+mod test {
+    use crate::{Record, Type};
+
+    #[test]
+    fn is_shape_compat() {
+        use crate::type_info::TypeInfo;
+        use serde_json::json;
+
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42))), true);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!("42"))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
+
+        assert_eq!(Option::<i32>::t().is_shape_compat(Some(&json!(42))), true);
+        assert_eq!(
+            Option::<i32>::t().is_shape_compat(Some(&json!("42"))),
+            false
+        );
+        assert_eq!(
+            Option::<i32>::t().is_shape_compat(Some(&json!(42.0))),
+            false
+        );
+
+        assert_eq!(
+            Vec::<i32>::t().is_shape_compat(Some(&json!([1, 2, 3]))),
+            true
+        );
+        assert_eq!(
+            Vec::<i32>::t().is_shape_compat(Some(&json!([1, 2, "3"])),),
+            true
+        );
+        assert_eq!(
+            Vec::<i32>::t().is_shape_compat(Some(&json!([1, 2, 3.0]))),
+            true
+        );
+
+        assert_eq!(
+            <(i32, i32)>::t().is_shape_compat(Some(&json!([1, 2]))),
+            true
+        );
+        assert_eq!(
+            <(i32, i32)>::t().is_shape_compat(Some(&json!([1, 2, 3]))),
+            false
+        );
+        assert_eq!(
+            <(i32, i32)>::t().is_shape_compat(Some(&json!([1, "2"]))),
+            true
+        );
+
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({"x": 1, "y": 2}))),
+            true
+        );
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({"x": "hello", "y": "world"}))),
+            true
+        );
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({"x": 1, "y": 2, "z": 3}))),
+            true
+        );
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({"x": "hello", "y": false, "z": 3}))),
+            true
+        );
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({}))),
+            false
+        );
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({"x": 1}))),
+            false
+        );
+        assert_eq!(
+            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
+                .is_shape_compat(Some(&json!({"x": "hello"}))),
+            false
+        );
+    }
+}
