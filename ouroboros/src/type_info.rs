@@ -157,6 +157,43 @@ impl Type {
             Self::Alias(alias) => alias.t.is_compat(value),
         }
     }
+
+    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        match self {
+            // Primitive types do not have a composite shape and so their
+            // implementation of shape compatibility will be exactly the same
+            // as full compatibility
+            Self::Unit
+            | Self::Bool
+            | Self::I8
+            | Self::I16
+            | Self::I32
+            | Self::I64
+            | Self::I128
+            | Self::U8
+            | Self::U16
+            | Self::U32
+            | Self::U64
+            | Self::U128
+            | Self::F32
+            | Self::F64
+            | Self::String => self.is_compat(value),
+
+            Self::Array(_arr) => value.map_or(false, |v| v.is_array()),
+            Self::Func(func) => func.is_compat(value), // Non-composite type
+            Self::Record(rec) => rec.is_shape_compat(value),
+            Self::Tuple(tup) => value
+                .and_then(|v| v.as_array())
+                .map_or(false, |arr| tup.fields.len() == arr.len()),
+            Self::Enum(enm) => enm.is_compat(value), // Non-composite type
+            Self::Optional(opt) => value.map_or(true, |v| opt.t.is_shape_compat(Some(v))),
+            Self::Union(union) => union.is_shape_compat(value),
+            Self::Ptr(p) => p.is_compat(value), // Non-composite type
+            Self::Symbolic(sym) => sym.is_compat(value), // Non-composite type
+            Self::Generic(gen) => gen.is_compat(value), // Non-composite type
+            Self::Alias(alias) => alias.t.is_shape_compat(value),
+        }
+    }
 }
 
 impl From<Array> for Type {

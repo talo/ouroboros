@@ -59,14 +59,10 @@ impl Func {
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         match value {
-            Some(value) => {
-                value.is_object()
-                    && value
-                        .as_object()
-                        .and_then(|object| object.get("λ"))
-                        .map(|n| n.is_string())
-                        .unwrap_or(false)
-            }
+            Some(value) => value
+                .as_object()
+                .and_then(|object| object.get("λ"))
+                .map_or(false, |n| n.is_string()),
             None => false,
         }
     }
@@ -200,6 +196,10 @@ impl Record {
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         self.fields.is_compat(value)
+    }
+
+    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
+        self.fields.is_shape_compat(value)
     }
 }
 

@@ -15,7 +15,7 @@ impl Ptr {
     }
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match { value } {
+        match value {
             Some(value) => value.is_string(),
             None => false,
         }
