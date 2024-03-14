@@ -37,8 +37,7 @@ impl NamedFields {
         match value {
             Some(value) => value.as_object().map_or(false, |object| {
                 self.iter().all(|f| match object.get(&f.n) {
-                    Some(v) if f.t.is_compat(Some(v)) => true,
-                    Some(_) => false,
+                    Some(v) => f.t.is_compat(Some(v)),
                     None => f.t.is_compat(None),
                 })
             }),
