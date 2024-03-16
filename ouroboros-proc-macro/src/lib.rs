@@ -25,18 +25,16 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                         })
                         .filter_map(|meta| {
                             if let syn::Meta::NameValue(value) = meta {
-                                if let syn::Expr::Lit(syn::ExprLit { lit, .. }) = value.value {
-                                    if let syn::Lit::Str(lit_str) = lit {
-                                        let doc_str = lit_str.token().to_string();
-                                        if doc_str.starts_with("\" ") && doc_str.ends_with('\"') {
-                                            Some(doc_str[2..doc_str.len() - 1].to_string())
-                                        } else if doc_str.starts_with("\"")
-                                            && doc_str.ends_with('\"')
-                                        {
-                                            Some(doc_str[1..doc_str.len() - 1].to_string())
-                                        } else {
-                                            None
-                                        }
+                                if let syn::Expr::Lit(syn::ExprLit {
+                                    lit: syn::Lit::Str(lit_str),
+                                    ..
+                                }) = value.value
+                                {
+                                    let doc_str = lit_str.token().to_string();
+                                    if doc_str.starts_with("\" ") && doc_str.ends_with('\"') {
+                                        Some(doc_str[2..doc_str.len() - 1].to_string())
+                                    } else if doc_str.starts_with('\"') && doc_str.ends_with('\"') {
+                                        Some(doc_str[1..doc_str.len() - 1].to_string())
                                     } else {
                                         None
                                     }
@@ -50,7 +48,7 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                         .collect::<Vec<_>>();
                     let field_name = format!("{}", field.ident.clone().unwrap());
                     let field_type = describe_type(&field.ty);
-                    if field_docs.len() == 0 {
+                    if field_docs.is_empty() {
                         quote! {
                             fields.push(::ouroboros::NamedField::new(#field_name, #field_type));
                         }

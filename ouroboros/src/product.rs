@@ -73,7 +73,7 @@ impl Func {
             Some(value) => value
                 .as_object()
                 .and_then(|object| object.get("λ"))
-                .map(|n| n.is_string())
+                .and_then(|n| n.as_string())
                 .map(|_| Ok(()))
                 .unwrap_or(Err(Error::InvalidFunc {
                     expected: self.clone(),
@@ -225,7 +225,8 @@ impl Record {
 
 impl Display for Record {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.n.fmt(f)
+        self.n.fmt(f)?;
+        self.fields.fmt(f)
     }
 }
 

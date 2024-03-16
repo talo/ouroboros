@@ -68,7 +68,7 @@ pub trait ValueVisitor {
         Ok(())
     }
 
-    fn visit_array(&mut self, _arr: &Array, _val: &Vec<Value>) -> Result<(), Self::Error> {
+    fn visit_array(&mut self, _arr: &Array, _val: &[Value]) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -87,12 +87,12 @@ pub trait ValueVisitor {
     fn visit_record_with_unnamed_fields(
         &mut self,
         _rec: &Record,
-        _val: &Vec<Value>,
+        _val: &[Value],
     ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_tuple(&mut self, _tup: &Tuple, _val: &Vec<Value>) -> Result<(), Self::Error> {
+    fn visit_tuple(&mut self, _tup: &Tuple, _val: &[Value]) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -169,15 +169,15 @@ where
         Type::U8 => v.visit_u8(val.as_u64().expect("value should be u8") as u8),
         Type::U16 => v.visit_u16(val.as_u64().expect("value should be u16") as u16),
         Type::U32 => v.visit_u32(val.as_u64().expect("value should be u32") as u32),
-        Type::U64 => v.visit_u64(val.as_u64().expect("value should be u64") as u64),
+        Type::U64 => v.visit_u64(val.as_u64().expect("value should be u64")),
         Type::U128 => v.visit_u128(val.as_u64().expect("value should be u128") as u128),
-        Type::I8 => v.visit_i8(val.as_u64().expect("value should be i8") as i8),
-        Type::I16 => v.visit_i16(val.as_u64().expect("value should be i16") as i16),
-        Type::I32 => v.visit_i32(val.as_u64().expect("value should be i32") as i32),
-        Type::I64 => v.visit_i64(val.as_u64().expect("value should be i64") as i64),
-        Type::I128 => v.visit_i128(val.as_u64().expect("value should be i128") as i128),
+        Type::I8 => v.visit_i8(val.as_i64().expect("value should be i8") as i8),
+        Type::I16 => v.visit_i16(val.as_i64().expect("value should be i16") as i16),
+        Type::I32 => v.visit_i32(val.as_i64().expect("value should be i32") as i32),
+        Type::I64 => v.visit_i64(val.as_i64().expect("value should be i64")),
+        Type::I128 => v.visit_i128(val.as_i64().expect("value should be i128") as i128),
         Type::F32 => v.visit_f32(val.as_f64().expect("value should be f32") as f32),
-        Type::F64 => v.visit_f64(val.as_f64().expect("value should be f64") as f64),
+        Type::F64 => v.visit_f64(val.as_f64().expect("value should be f64")),
         Type::String => v.visit_string(val.as_str().expect("value should be string")),
         Type::Array(arr) => {
             let val = val.as_array().expect("value should be array");
@@ -264,10 +264,8 @@ where
         Type::Union(union) => match val {
             Value::String(string) => {
                 for variant in &union.variants {
-                    if let None = variant.fields {
-                        if string == &variant.n {
-                            return v.visit_union_variant_string(union, variant, string);
-                        }
+                    if variant.fields.is_none() && string == &variant.n {
+                        return v.visit_union_variant_string(union, variant, string);
                     }
                 }
                 panic!("value should be union variant (string)")
