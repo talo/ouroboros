@@ -1,6 +1,6 @@
 use crate::{Alias, Array, Enum, Fields, Func, Optional, Ptr, Record, Symbolic, Tuple, Union};
 
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum Error {
     #[error("unexpected null")]
     UnexpectedNull,
