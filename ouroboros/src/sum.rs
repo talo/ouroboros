@@ -147,31 +147,6 @@ impl Union {
             None => false,
         }    
     }
-
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match value {
-            Some(value) => {
-                (
-                value.is_string() && value.as_str().map(|s| self
-                .variants
-                .iter()
-                .any(|variant|  s == variant.n)).unwrap_or(false)
-                )
-                || // Variant compat
-                (
-                    value.is_object() && value.as_object().map(|object| {
-                        self.variants.iter().any(|variant| {
-                            object.get(&variant.n)
-                                .and_then(|object_fields| variant.fields.as_ref().map(|variant_fields| variant_fields.is_shape_compat(Some(object_fields))))
-                                .unwrap_or(false)
-                        })
-                    }).unwrap_or(false) 
-                )
-            }
-            None => false,
-        }    
-    }
 }
 
 impl PartialEq for Union {

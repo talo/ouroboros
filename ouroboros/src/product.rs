@@ -197,10 +197,6 @@ impl Record {
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         self.fields.is_compat(value)
     }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        self.fields.is_shape_compat(value)
-    }
 }
 
 impl Display for Record {

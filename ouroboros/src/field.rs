@@ -36,19 +36,7 @@ impl NamedFields {
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
         match value {
             Some(value) => value.as_object().map_or(false, |object| {
-                self.iter().all(|f| match object.get(&f.n) {
-                    Some(v) => f.t.is_compat(Some(v)),
-                    None => f.t.is_compat(None),
-                })
-            }),
-            _ => false,
-        }
-    }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match value {
-            Some(value) => value.as_object().map_or(false, |object| {
-                self.iter().all(|f| object.contains_key(&f.n))
+                self.iter().all(|f| f.t.is_compat(object.get(&f.n)))
             }),
             _ => false,
         }
@@ -153,15 +141,6 @@ impl UnnamedFields {
             _ => false,
         }
     }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match value {
-            Some(value) => value
-                .as_array()
-                .map_or(false, |arr| arr.len() >= self.len()),
-            _ => false,
-        }
-    }
 }
 
 impl IntoIterator for UnnamedFields {
@@ -259,13 +238,6 @@ impl Fields {
         match self {
             Self::Unnamed(unnamed) => unnamed.is_compat(value),
             Self::Named(named) => named.is_compat(value),
-        }
-    }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match self {
-            Self::Unnamed(unnamed) => unnamed.is_shape_compat(value),
-            Self::Named(named) => named.is_shape_compat(value),
         }
     }
 }
