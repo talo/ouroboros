@@ -33,12 +33,27 @@ impl NamedFields {
         self.fields.iter().find(|f| f.n == name)
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => value.as_object().map_or(false, |object| {
-                self.iter().all(|f| f.t.is_compat(object.get(&f.n)))
+            Some(value) => value
+                .as_object()
+                .map(|object| {
+                    self.iter().try_for_each(|f| {
+                        f.t.is_compat(object.get(&f.n))
+                            .map_err(|e| Error::InvalidNamedField {
+                                index: f.n.to_string(),
+                                e: e.into(),
+                            })
+                    })
+                })
+                .unwrap_or(Err(Error::InvalidFields {
+                    expected: Fields::Named(self.clone()),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })),
+            _ => Err(Error::InvalidFields {
+                expected: Fields::Named(self.clone()),
+                e: Error::UnexpectedNull.into(),
             }),
-            _ => false,
         }
     }
 }
@@ -131,14 +146,32 @@ impl UnnamedFields {
         self.fields.is_empty()
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => value.as_array().map_or(false, |arr| {
-                self.iter()
-                    .enumerate()
-                    .all(|(i, f)| f.t.is_compat(arr.get(i)))
+            Some(value) => value
+                .as_array()
+                .and_then(|array| {
+                    (array.len() == self.len()).then(|| {
+                        self.iter()
+                            .zip(array.iter())
+                            .enumerate()
+                            .try_for_each(|(i, (f, v))| {
+                                f.t.is_compat(Some(v))
+                                    .map_err(|e| Error::InvalidUnnamedField {
+                                        index: i,
+                                        e: e.into(),
+                                    })
+                            })
+                    })
+                })
+                .unwrap_or(Err(Error::InvalidFields {
+                    expected: Fields::Unnamed(self.clone()),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })),
+            _ => Err(Error::InvalidFields {
+                expected: Fields::Unnamed(self.clone()),
+                e: Error::UnexpectedNull.into(),
             }),
-            _ => false,
         }
     }
 }
@@ -235,54 +268,9 @@ impl Fields {
     }
 
     pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
-        match value {
-            Some(value) => match self {
-                Self::Unnamed(unnamed) => value
-                    .as_array()
-                    .and_then(|array| {
-                        (array.len() == unnamed.len()).then(|| {
-                            unnamed
-                                .iter()
-                                .zip(array.iter())
-                                .enumerate()
-                                .map(|(i, (f, v))| {
-                                    f.t.is_compat(Some(v))
-                                        .map_err(|e| Error::InvalidUnnamedField {
-                                            index: i,
-                                            e: e.into(),
-                                        })
-                                })
-                                .collect::<Result<_>>()
-                        })
-                    })
-                    .unwrap_or(Err(Error::InvalidFields {
-                        expected: self.clone(),
-                        e: Error::UnexpectedValue { got: value.clone() }.into(),
-                    })),
-                Self::Named(named) => value
-                    .as_object()
-                    .map(|object| {
-                        named
-                            .iter()
-                            .map(|f| {
-                                f.t.is_compat(object.get(&f.n)).map_err(|e| {
-                                    Error::InvalidNamedField {
-                                        index: f.n.to_string(),
-                                        e: e.into(),
-                                    }
-                                })
-                            })
-                            .collect::<Result<_>>()
-                    })
-                    .unwrap_or(Err(Error::InvalidFields {
-                        expected: self.clone(),
-                        e: Error::UnexpectedValue { got: value.clone() }.into(),
-                    })),
-            },
-            None => Err(Error::InvalidFields {
-                expected: self.clone(),
-                e: Error::UnexpectedNull.into(),
-            }),
+        match self {
+            Self::Unnamed(unnamed) => unnamed.is_compat(value),
+            Self::Named(named) => named.is_compat(value),
         }
     }
 }

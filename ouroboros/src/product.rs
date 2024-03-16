@@ -27,8 +27,7 @@ impl Array {
                 .as_array()
                 .map(|a| {
                     a.iter()
-                        .map(|v| self.t.is_compat(Some(v)))
-                        .collect::<Result<_>>()
+                        .try_for_each(|v| self.t.is_compat(Some(v)))
                         .map_err(|e| Error::InvalidArray {
                             expected: self.clone(),
                             e: e.into(),
@@ -73,7 +72,7 @@ impl Func {
             Some(value) => value
                 .as_object()
                 .and_then(|object| object.get("λ"))
-                .and_then(|n| n.as_string())
+                .and_then(|n| n.as_str())
                 .map(|_| Ok(()))
                 .unwrap_or(Err(Error::InvalidFunc {
                     expected: self.clone(),
@@ -252,14 +251,13 @@ impl Tuple {
                             .iter()
                             .zip(array.iter())
                             .enumerate()
-                            .map(|(i, (f, v))| {
+                            .try_for_each(|(i, (f, v))| {
                                 f.t.is_compat(Some(v))
                                     .map_err(|e| Error::InvalidUnnamedField {
                                         index: i,
                                         e: e.into(),
                                     })
                             })
-                            .collect::<Result<_>>()
                     })
                 })
                 .unwrap_or(Err(Error::InvalidFields {
