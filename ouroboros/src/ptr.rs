@@ -91,7 +91,6 @@ mod test {
                 e: Error::UnexpectedNull.into(),
             })
         );
-
         assert_eq!(
             Ptr::new(Type::Record(Record::new(
                 "Foo",
