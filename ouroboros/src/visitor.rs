@@ -302,99 +302,156 @@ where
 pub trait MutableValueVisitor {
     type Error;
 
-    fn visit_unit(&mut self, val: &Value) -> Result<(), Self::Error>;
+    fn visit_unit(&mut self, _val: &Value) -> Result<(), Self::Error> {
+        Ok(())
+    }
+    fn visit_bool(&mut self, _val: bool) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_bool(&mut self, val: bool) -> Result<(), Self::Error>;
+    fn visit_u8(&mut self, _val: u8) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_u8(&mut self, val: u8) -> Result<(), Self::Error>;
+    fn visit_u16(&mut self, _val: u16) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_u16(&mut self, val: u16) -> Result<(), Self::Error>;
+    fn visit_u32(&mut self, _val: u32) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_u32(&mut self, val: u32) -> Result<(), Self::Error>;
+    fn visit_u64(&mut self, _val: u64) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_u64(&mut self, val: u64) -> Result<(), Self::Error>;
+    fn visit_u128(&mut self, _val: u128) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_u128(&mut self, val: u128) -> Result<(), Self::Error>;
+    fn visit_i8(&mut self, _val: i8) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_i8(&mut self, val: i8) -> Result<(), Self::Error>;
+    fn visit_i16(&mut self, _val: i16) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_i16(&mut self, val: i16) -> Result<(), Self::Error>;
+    fn visit_i32(&mut self, _val: i32) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_i32(&mut self, val: i32) -> Result<(), Self::Error>;
+    fn visit_i64(&mut self, _val: i64) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_i64(&mut self, val: i64) -> Result<(), Self::Error>;
+    fn visit_i128(&mut self, _val: i128) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_i128(&mut self, val: i128) -> Result<(), Self::Error>;
+    fn visit_f32(&mut self, _val: f32) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_f32(&mut self, val: f32) -> Result<(), Self::Error>;
+    fn visit_f64(&mut self, _val: f64) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_f64(&mut self, val: f64) -> Result<(), Self::Error>;
+    fn visit_string(&mut self, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_string(&mut self, val: &str) -> Result<(), Self::Error>;
-
-    fn visit_array(&mut self, arr: &Array, val: &mut [Value]) -> Result<(), Self::Error>;
+    fn visit_array(&mut self, _arr: &Array, _val: &mut [Value]) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_func(
         &mut self,
-        func: &Func,
-        val: &mut Lambda<Value, Value>,
-    ) -> Result<(), Self::Error>;
+        _func: &Func,
+        _val: &mut Lambda<Value, Value>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_record_with_named_fields(
         &mut self,
-        rec: &Record,
-        val: &mut Map<String, Value>,
-    ) -> Result<(), Self::Error>;
+        _rec: &Record,
+        _val: &mut Map<String, Value>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_record_with_unnamed_fields(
         &mut self,
-        rec: &Record,
-        val: &mut [Value],
-    ) -> Result<(), Self::Error>;
+        _rec: &Record,
+        _val: &mut [Value],
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_tuple(&mut self, tup: &Tuple, val: &mut [Value]) -> Result<(), Self::Error>;
+    fn visit_tuple(&mut self, _tup: &Tuple, _val: &mut [Value]) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_enum_variant_string(
         &mut self,
-        enm: &Enum,
-        var: &EnumVariant,
-        val: &str,
-    ) -> Result<(), Self::Error>;
+        _enm: &Enum,
+        _var: &EnumVariant,
+        _val: &str,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_enum_variant_const_value(
         &mut self,
-        enm: &Enum,
-        var: &EnumVariant,
-        val: u8,
-    ) -> Result<(), Self::Error>;
+        _enm: &Enum,
+        _var: &EnumVariant,
+        _val: u8,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_optional(
         &mut self,
-        opt: &Optional,
-        val: &mut Option<&mut Value>,
-    ) -> Result<(), Self::Error>;
+        _opt: &Optional,
+        _val: &mut Option<&mut Value>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_union_variant_string(
         &mut self,
-        union: &Union,
-        var: &UnionVariant,
-        val: &mut String,
-    ) -> Result<(), Self::Error>;
+        _union: &Union,
+        _var: &UnionVariant,
+        _val: &mut String,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
     fn visit_union_variant_fields(
         &mut self,
-        union: &Union,
-        var: &UnionVariant,
-        val: &mut Map<String, Value>,
-    ) -> Result<(), Self::Error>;
+        _union: &Union,
+        _var: &UnionVariant,
+        _val: &mut Map<String, Value>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_ptr(&mut self, ptr: &Ptr, val: &str) -> Result<(), Self::Error>;
+    fn visit_ptr(&mut self, _ptr: &Ptr, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_symbolic(&mut self, sym: &Symbolic, val: &str) -> Result<(), Self::Error>;
+    fn visit_symbolic(&mut self, _sym: &Symbolic, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_generic(&mut self, gen: &Generic, val: &str) -> Result<(), Self::Error>;
+    fn visit_generic(&mut self, _gen: &Generic, _val: &str) -> Result<(), Self::Error> {
+        Ok(())
+    }
 
-    fn visit_alias(&mut self, alias: &Alias, val: &Value) -> Result<(), Self::Error>;
+    fn visit_alias(&mut self, _alias: &Alias, _val: &Value) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 pub fn walk_value_mut<V>(v: &mut V, t: &Type, val: &mut Value) -> Result<(), V::Error>
