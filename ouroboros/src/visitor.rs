@@ -157,7 +157,7 @@ pub fn walk_value<V>(v: &mut V, t: &Type, val: &Value) -> Result<(), V::Error>
 where
     V: ValueVisitor,
 {
-    if t.is_compat(Some(val)).is_err() {
+    if !t.is_compat(Some(val)).is_ok() {
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
@@ -457,7 +457,7 @@ pub fn walk_value_mut<V>(v: &mut V, t: &Type, val: &mut Value) -> Result<(), V::
 where
     V: MutableValueVisitor,
 {
-    if !t.is_compat(Some(val)) {
+    if !t.is_compat(Some(val)).is_ok() {
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
@@ -577,10 +577,9 @@ where
                     if object
                         .get(&variant.n)
                         .and_then(|object_fields| {
-                            variant
-                                .fields
-                                .as_ref()
-                                .map(|variant_fields| variant_fields.is_compat(Some(object_fields)))
+                            variant.fields.as_ref().map(|variant_fields| {
+                                variant_fields.is_compat(Some(object_fields)).is_ok()
+                            })
                         })
                         .unwrap_or(false)
                     {
@@ -814,61 +813,4 @@ where
             walk_type(v, &alias.t)
         }
     }
-}
-
-#[macro_export]
-macro_rules! unsigned_int_range_check {
-    ($v: ident as $uint: ident else $err: ident) => {
-        $v.and_then(|$v| $v.as_u64())
-            .and_then(|$v| ($v <= $uint::MAX as u64).then_some(()))
-            .ok_or(Error::$err {
-                got: $v.cloned().unwrap_or(serde_json::Value::Null),
-            })
-    };
-}
-
-#[macro_export]
-macro_rules! signed_int_range_check {
-    ($v: ident as $sint: ident else $err: ident) => {
-        $v.and_then(|$v| $v.as_i64())
-            .and_then(|$v| ($v >= $sint::MIN as i64 && $v <= $sint::MAX as i64).then_some(()))
-            .ok_or(Error::$err {
-                got: $v.cloned().unwrap_or(serde_json::Value::Null),
-            })
-    };
-}
-
-#[macro_export]
-macro_rules! float_range_check {
-    ($v: ident as $f: ident else $err: ident) => {
-        if let Some(x) = $v.and_then(|$v| $v.as_f64()) {
-            if x >= $f::MIN as f64 && x <= $f::MAX as f64 {
-                Ok(())
-            } else {
-                Err(Error::$err {
-                    got: $v.cloned().unwrap_or(serde_json::Value::Null),
-                })
-            }
-        } else if let Some(x) = $v.and_then(|$v| $v.as_i64()) {
-            if x >= $f::MIN.ceil() as i64 && x <= $f::MAX.floor() as i64 {
-                Ok(())
-            } else {
-                Err(Error::$err {
-                    got: $v.cloned().unwrap_or(serde_json::Value::Null),
-                })
-            }
-        } else if let Some(x) = $v.and_then(|$v| $v.as_u64()) {
-            if x <= $f::MAX.floor() as u64 {
-                Ok(())
-            } else {
-                Err(Error::$err {
-                    got: $v.cloned().unwrap_or(serde_json::Value::Null),
-                })
-            }
-        } else {
-            Err(Error::$err {
-                got: $v.cloned().unwrap_or(serde_json::Value::Null),
-            })
-        }
-    };
 }
