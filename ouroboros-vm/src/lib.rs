@@ -1,19 +1,19 @@
 use std::{ffi::CString, future::Future, mem::ManuallyDrop, slice};
 
+use ouroboros::Lambda;
 use ouroboros_wasm::ErrorCode;
 use serde::{Deserialize, Serialize};
 use wasmtime::{Caller, Config, Engine, Linker, Module, Store, Val};
 
-pub async fn thunk_in_background<S, L, A, R, Fut>(
+pub async fn thunk_in_background<S, A, R, Fut>(
     bytecode: impl AsRef<[u8]>,
     entrypoint: impl AsRef<str>,
     initial_state: S,
     args: A,
-    cb: impl 'static + Clone + Fn(&mut Caller<'_, S>, L, A) -> Fut + Send + Sync,
+    cb: impl 'static + Clone + Fn(&mut Caller<'_, S>, Lambda<A, R>, A) -> Fut + Send + Sync,
 ) -> anyhow::Result<R>
 where
     S: Send,
-    for<'de> L: Deserialize<'de>,
     for<'de> A: Deserialize<'de> + Serialize,
     for<'de> R: Deserialize<'de>,
     Fut: Future<Output = ()> + Send + Unpin,
@@ -67,7 +67,7 @@ where
                             lambda_size as usize,
                         )
                     });
-                    let lambda = match serde_json::from_slice::<L>(&lambda) {
+                    let lambda = match serde_json::from_slice::<Lambda<A, R>>(&lambda) {
                         Ok(lambda) => lambda,
                         Err(_) => {
                             write_err_code(mem_data, out_err_code, ErrorCode::InvalidJson as i32);
