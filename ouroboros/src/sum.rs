@@ -59,7 +59,19 @@ impl Enum {
 
 impl Display for Enum {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.n.fmt(f)
+        self.n.fmt(f)?;
+        "[".fmt(f)?;
+        for (i, variant) in self.variants.iter().enumerate() {
+            if i > 0 {
+                " | ".fmt(f)?;
+            }
+            variant.n.fmt(f)?;
+            if let Some(v) = variant.v {
+                " = ".fmt(f)?;
+                v.fmt(f)?;
+            }
+        }
+        "]".fmt(f)
     }
 }
 
@@ -222,7 +234,18 @@ impl Eq for Union {}
 
 impl Display for Union {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.n.fmt(f)
+        self.n.fmt(f)?;
+        "{".fmt(f)?;
+        for (i, variant) in self.variants.iter().enumerate() {
+            if i > 0 {
+                " | ".fmt(f)?;
+            }
+            variant.n.fmt(f)?;
+            if let Some(fields) = &variant.fields {
+                fields.fmt(f)?;
+            }
+        }
+        "}".fmt(f)
     }
 }
 

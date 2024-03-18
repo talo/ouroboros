@@ -1,3 +1,6 @@
+#[cfg(feature = "arrow")]
+pub mod arrow;
+
 #[cfg(feature = "graphql")]
 pub mod graphql;
 

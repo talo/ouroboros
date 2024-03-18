@@ -458,10 +458,7 @@ pub mod de {
                         None => "_".to_string(),
                     };
                     // Optional doc
-                    let doc = match map.get("doc") {
-                        Some(doc) => Some(doc.clone()),
-                        None => None,
-                    };
+                    let doc = map.get("doc").cloned();
 
                     // Check the kind
                     match k {
@@ -792,11 +789,8 @@ pub mod de {
             S: SeqAccess<'de>,
         {
             let mut unnamed_fields = Vec::new();
-            loop {
-                match access.next_element::<Type>()? {
-                    Some(t) => unnamed_fields.push(UnnamedField::new(t)),
-                    None => break,
-                }
+            while let Some(t) = access.next_element::<Type>()? {
+                unnamed_fields.push(UnnamedField::new(t));
             }
             Ok(Fields::unnamed(unnamed_fields))
         }
@@ -806,11 +800,8 @@ pub mod de {
             M: MapAccess<'de>,
         {
             let mut named_fields = Vec::new();
-            loop {
-                match access.next_entry::<String, Type>()? {
-                    Some((n, t)) => named_fields.push(NamedField::new(n, t)),
-                    None => break,
-                }
+            while let Some((n, t)) = access.next_entry::<String, Type>()? {
+                named_fields.push(NamedField::new(n, t));
             }
             Ok(Fields::named(named_fields))
         }

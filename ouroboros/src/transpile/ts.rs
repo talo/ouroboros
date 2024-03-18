@@ -454,7 +454,7 @@ impl TypedefVisitor {
             s.push_str(",\n");
         }
         s.push_str(prefix);
-        s.push_str("}");
+        s.push('}');
         s
     }
 
@@ -498,7 +498,7 @@ impl TypedefVisitor {
                 None => {
                     s.push_str(prefix);
                     s.push_str(&union.n);
-                    s.push_str("_");
+                    s.push('_');
                     s.push_str(&variant.n);
                     s.push_str(" = {};\n");
                 }
@@ -514,7 +514,7 @@ impl TypedefVisitor {
                 s.push_str(" | ");
             }
         }
-        s.push_str(";");
+        s.push(';');
 
         s
     }
