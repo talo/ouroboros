@@ -2,10 +2,12 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{
     field::UnnamedField,
+    float_range_check,
     product::{Array, Record, Tuple},
+    signed_int_range_check,
     sum::{Enum, Optional, Union},
     symbolic::Symbolic,
-    Alias, Func, Generic, Ptr,
+    unsigned_int_range_check, Alias, Error, Func, Generic, Ptr, Result,
 };
 
 pub trait TypeInfo {
@@ -101,97 +103,95 @@ impl Type {
         }
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match self {
-            Self::Unit => value.map_or(false, |v| v.is_null()),
-            Self::Bool => value.map_or(false, |v| v.is_boolean()),
-            Self::I8 => value.map_or(false, |v| {
-                v.as_i64()
-                    .map(|v| i8::MIN as i64 <= v && v <= i8::MAX as i64)
-                    .unwrap_or(false)
-            }),
-            Self::I16 => value.map_or(false, |v| {
-                v.as_i64()
-                    .map(|v| i16::MIN as i64 <= v && v <= i16::MAX as i64)
-                    .unwrap_or(false)
-            }),
-            Self::I32 => value.map_or(false, |v| {
-                v.as_i64()
-                    .map(|v| i32::MIN as i64 <= v && v <= i32::MAX as i64)
-                    .unwrap_or(false)
-            }),
-            Self::I64 => value.map_or(false, |v| v.is_i64()),
-            Self::I128 => value.map_or(false, |v| v.is_i64()),
-            Self::U8 => value.map_or(false, |v| {
-                v.as_u64().map(|v| v <= u8::MAX as u64).unwrap_or(false)
-            }),
-            Self::U16 => value.map_or(false, |v| {
-                v.as_u64().map(|v| v <= u16::MAX as u64).unwrap_or(false)
-            }),
-            Self::U32 => value.map_or(false, |v| {
-                v.as_u64().map(|v| v <= u32::MAX as u64).unwrap_or(false)
-            }),
-            Self::U64 => value.map_or(false, |v| v.is_u64()),
-            Self::U128 => value.map_or(false, |v| v.is_u64()),
-            Self::F32 => value.map_or(false, |v| {
-                v.as_f64()
-                    .map(|v| f32::MIN as f64 <= v && v <= f32::MAX as f64)
-                    .unwrap_or(false)
-            }),
-            Self::F64 => value.map_or(false, |v| {
-                v.as_f64()
-                    .map(|v| (f64::MIN..=f64::MAX).contains(&v))
-                    .unwrap_or(false)
-            }),
-            Self::String => value.map_or(false, |v| v.is_string()),
+            // Unit values must be present and must be null.
+            Self::Unit => match value {
+                Some(value) if value.is_null() => Ok(()),
+                _ => Err(Error::InvalidUnit {
+                    got: value.cloned().unwrap_or(serde_json::Value::Null),
+                }),
+            },
+
+            // Bool values must be present and must be a truthy/falsy.
+            Self::Bool => match value {
+                Some(value) if value.is_boolean() => Ok(()),
+                _ => Err(Error::InvalidBool {
+                    got: value.cloned().unwrap_or(serde_json::Value::Null),
+                }),
+            },
+
+            // Int values must be present and must be an integral value in the
+            // integer range (JSON only supports 64-bit integers so we need to
+            // do explicit range checks).
+            Self::I8 => signed_int_range_check!(value as i8 else InvalidI8),
+            Self::I16 => signed_int_range_check!(value as i16 else InvalidI16),
+            Self::I32 => signed_int_range_check!(value as i32 else InvalidI32),
+            Self::I64 => signed_int_range_check!(value as i64 else InvalidI64),
+            Self::I128 => signed_int_range_check!(value as i128 else InvalidI128),
+
+            Self::U8 => unsigned_int_range_check!(value as u8 else InvalidU8),
+            Self::U16 => unsigned_int_range_check!(value as u16 else InvalidU16),
+            Self::U32 => unsigned_int_range_check!(value as u32 else InvalidU32),
+            Self::U64 => unsigned_int_range_check!(value as u64 else InvalidU64),
+            Self::U128 => unsigned_int_range_check!(value as u128 else InvalidU128),
+
+            // Floating-point values must be present and must be a numeric value
+            // value within the floating point range (JSON only supports 64-bit
+            // floats and integers so we need to do explicit range checks).
+            Self::F32 => float_range_check!(value as f32 else InvalidF32),
+            Self::F64 => float_range_check!(value as f64 else InvalidF64),
+
+            // String values must be present and must be string kinded.
+            Self::String => match value {
+                Some(value) if value.is_string() => Ok(()),
+                _ => Err(Error::InvalidString {
+                    got: value.cloned().unwrap_or(serde_json::Value::Null),
+                }),
+            },
+
+            // Array values must be present and must be array kinded. All items
+            // in the array are also checked for compatibility.
             Self::Array(arr) => arr.is_compat(value),
+
+            // Function values must be present and must be object kinded with at
+            // least one key, "λ", that is string kinded. This key is the name
+            // of the λ-value (and λ-values always have function types).
             Self::Func(func) => func.is_compat(value),
+
+            // Record values must be present and must be object kinded for named
+            // records and array kinded for unnamed records. All fields in the
+            // record are also checked for compatibility.
             Self::Record(rec) => rec.is_compat(value),
+
+            // Tuple values must be present and must be array kinded. All items
+            // in the tuple are also checked for compatibility.
             Self::Tuple(tup) => tup.is_compat(value),
+
+            // Enum values must be present and must be string kinded or integer
+            // kinded. The string kinded value must be one of the enum variants
+            // and the integer kinded value must be one of the enum variant
+            // constant-values.
             Self::Enum(enm) => enm.is_compat(value),
+
+            // Optional values must be present and must be null or compatible
+            // with the inner type of the optional.
             Self::Optional(opt) => opt.is_compat(value),
+
             Self::Union(union) => union.is_compat(value),
+
+            // Symbolic values must be present and must be string kinded.
             Self::Ptr(p) => p.is_compat(value),
+
+            // Symbolic values must be present and must be string kinded.
             Self::Symbolic(sym) => sym.is_compat(value),
+
+            // Generic values are compatibility with everything.
             Self::Generic(gen) => gen.is_compat(value),
-            Self::Alias(alias) => alias.t.is_compat(value),
-        }
-    }
 
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match self {
-            // Primitive types do not have a composite shape and so their
-            // implementation of shape compatibility will be exactly the same
-            // as full compatibility
-            Self::Unit
-            | Self::Bool
-            | Self::I8
-            | Self::I16
-            | Self::I32
-            | Self::I64
-            | Self::I128
-            | Self::U8
-            | Self::U16
-            | Self::U32
-            | Self::U64
-            | Self::U128
-            | Self::F32
-            | Self::F64
-            | Self::String => self.is_compat(value),
-
-            Self::Array(_arr) => value.map_or(false, |v| v.is_array()),
-            Self::Func(func) => func.is_compat(value), // Non-composite type
-            Self::Record(rec) => rec.is_shape_compat(value),
-            Self::Tuple(tup) => value
-                .and_then(|v| v.as_array())
-                .map_or(false, |arr| tup.fields.len() == arr.len()),
-            Self::Enum(enm) => enm.is_compat(value), // Non-composite type
-            Self::Optional(opt) => value.map_or(true, |v| opt.t.is_shape_compat(Some(v))),
-            Self::Union(union) => union.is_shape_compat(value),
-            Self::Ptr(p) => p.is_compat(value), // Non-composite type
-            Self::Symbolic(sym) => sym.is_compat(value), // Non-composite type
-            Self::Generic(gen) => gen.is_compat(value), // Non-composite type
-            Self::Alias(alias) => alias.t.is_shape_compat(value),
+            // Alias values are checked for compatibility by checking for
+            // compatibility against the inner type of the alias.
+            Self::Alias(alias) => alias.is_compat(value),
         }
     }
 }
@@ -598,99 +598,3 @@ impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_tuple!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
-
-#[cfg(test)]
-mod test {
-    use crate::{Record, Type};
-
-    #[test]
-    fn is_shape_compat() {
-        use crate::type_info::TypeInfo;
-        use serde_json::json;
-
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42))), true);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!("42"))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-        assert_eq!(i32::t().is_shape_compat(Some(&json!(42.0))), false);
-
-        assert_eq!(Option::<i32>::t().is_shape_compat(Some(&json!(42))), true);
-        assert_eq!(
-            Option::<i32>::t().is_shape_compat(Some(&json!("42"))),
-            false
-        );
-        assert_eq!(
-            Option::<i32>::t().is_shape_compat(Some(&json!(42.0))),
-            false
-        );
-
-        assert_eq!(
-            Vec::<i32>::t().is_shape_compat(Some(&json!([1, 2, 3]))),
-            true
-        );
-        assert_eq!(
-            Vec::<i32>::t().is_shape_compat(Some(&json!([1, 2, "3"])),),
-            true
-        );
-        assert_eq!(
-            Vec::<i32>::t().is_shape_compat(Some(&json!([1, 2, 3.0]))),
-            true
-        );
-
-        assert_eq!(
-            <(i32, i32)>::t().is_shape_compat(Some(&json!([1, 2]))),
-            true
-        );
-        assert_eq!(
-            <(i32, i32)>::t().is_shape_compat(Some(&json!([1, 2, 3]))),
-            false
-        );
-        assert_eq!(
-            <(i32, i32)>::t().is_shape_compat(Some(&json!([1, "2"]))),
-            true
-        );
-
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({"x": 1, "y": 2}))),
-            true
-        );
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({"x": "hello", "y": "world"}))),
-            true
-        );
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({"x": 1, "y": 2, "z": 3}))),
-            true
-        );
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({"x": "hello", "y": false, "z": 3}))),
-            true
-        );
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({}))),
-            false
-        );
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({"x": 1}))),
-            false
-        );
-        assert_eq!(
-            Type::from(Record::new("Point", vec![("x", i32::t()), ("y", i32::t())]))
-                .is_shape_compat(Some(&json!({"x": "hello"}))),
-            false
-        );
-    }
-}

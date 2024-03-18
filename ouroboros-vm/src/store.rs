@@ -8,6 +8,7 @@ pub trait Store {
     async fn get_func(&self, name: &str) -> anyhow::Result<Option<Func>>;
 }
 
+#[derive(Default)]
 pub struct InMemoryStore {
     funcs: HashMap<String, Func>,
 }

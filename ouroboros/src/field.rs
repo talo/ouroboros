@@ -5,7 +5,7 @@ use std::{
     slice::Iter,
 };
 
-use crate::type_info::Type;
+use crate::{Error, Result, Type};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NamedFields {
@@ -33,24 +33,27 @@ impl NamedFields {
         self.fields.iter().find(|f| f.n == name)
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
-            Some(value) => value.as_object().map_or(false, |object| {
-                self.iter().all(|f| match object.get(&f.n) {
-                    Some(v) => f.t.is_compat(Some(v)),
-                    None => f.t.is_compat(None),
+            Some(value) => value
+                .as_object()
+                .map(|object| {
+                    self.iter().try_for_each(|f| {
+                        f.t.is_compat(object.get(&f.n))
+                            .map_err(|e| Error::InvalidNamedField {
+                                index: f.n.to_string(),
+                                e: e.into(),
+                            })
+                    })
                 })
+                .unwrap_or(Err(Error::InvalidFields {
+                    expected: Fields::Named(self.clone()),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })),
+            _ => Err(Error::InvalidFields {
+                expected: Fields::Named(self.clone()),
+                e: Error::UnexpectedNull.into(),
             }),
-            _ => false,
-        }
-    }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match value {
-            Some(value) => value.as_object().map_or(false, |object| {
-                self.iter().all(|f| object.contains_key(&f.n))
-            }),
-            _ => false,
         }
     }
 }
@@ -143,23 +146,32 @@ impl UnnamedFields {
         self.fields.is_empty()
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match value {
-            Some(value) => value.as_array().map_or(false, |arr| {
-                self.iter()
-                    .enumerate()
-                    .all(|(i, f)| f.t.is_compat(arr.get(i)))
-            }),
-            _ => false,
-        }
-    }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match value {
             Some(value) => value
                 .as_array()
-                .map_or(false, |arr| arr.len() >= self.len()),
-            _ => false,
+                .and_then(|array| {
+                    (array.len() == self.len()).then(|| {
+                        self.iter()
+                            .zip(array.iter())
+                            .enumerate()
+                            .try_for_each(|(i, (f, v))| {
+                                f.t.is_compat(Some(v))
+                                    .map_err(|e| Error::InvalidUnnamedField {
+                                        index: i,
+                                        e: e.into(),
+                                    })
+                            })
+                    })
+                })
+                .unwrap_or(Err(Error::InvalidFields {
+                    expected: Fields::Unnamed(self.clone()),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })),
+            _ => Err(Error::InvalidFields {
+                expected: Fields::Unnamed(self.clone()),
+                e: Error::UnexpectedNull.into(),
+            }),
         }
     }
 }
@@ -255,17 +267,10 @@ impl Fields {
         Self::Unnamed(fields.into())
     }
 
-    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> bool {
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
         match self {
             Self::Unnamed(unnamed) => unnamed.is_compat(value),
             Self::Named(named) => named.is_compat(value),
-        }
-    }
-
-    pub fn is_shape_compat(&self, value: Option<&serde_json::Value>) -> bool {
-        match self {
-            Self::Unnamed(unnamed) => unnamed.is_shape_compat(value),
-            Self::Named(named) => named.is_shape_compat(value),
         }
     }
 }
