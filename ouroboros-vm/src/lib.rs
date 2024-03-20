@@ -1,414 +1,292 @@
-use std::{ffi::CString, mem::ManuallyDrop, slice};
+use std::{ffi::CString, future::Future, mem::ManuallyDrop, slice};
 
 use ouroboros::Lambda;
 use ouroboros_wasm::ErrorCode;
-use tokio::sync::{
-    mpsc::{Receiver, Sender},
-    oneshot::{self, Sender as Responder},
-};
-use wasmtime::{Caller, Config, Engine, Linker, Module, Val};
+use serde::{Deserialize, Serialize};
+use wasmtime::{Caller, Config, Engine, Linker, Module, Store, Val};
 
-use crate::store::Store;
+pub async fn thunk_in_background<S, A, R, Fut>(
+    bytecode: impl AsRef<[u8]>,
+    entrypoint: impl AsRef<str>,
+    initial_state: S,
+    args: A,
+    cb: impl 'static + Clone + Fn(&mut Caller<'_, S>, Lambda<A, R>, A) -> Fut + Send + Sync,
+) -> anyhow::Result<R>
+where
+    S: Send,
+    for<'de> A: Deserialize<'de> + Serialize,
+    for<'de> R: Deserialize<'de>,
+    Fut: Future<Output = ()> + Send + Unpin,
+{
+    let engine = Engine::new(Config::default().async_support(true))?;
+    let module = Module::new(&engine, bytecode)?;
 
-pub mod store;
+    let mut store = Store::new(&engine, initial_state);
+    let mut linker = Linker::new(&engine);
 
-pub enum Event {
-    Call(Call),
-    Deploy(Deploy),
-    Shutdown,
-}
+    linker.func_wrap8_async(
+        "env",
+        "__ouroboros__call",
+        move |mut caller: Caller<'_, S>,
+              version: i32,
+              lambda_ptr: i32,
+              lambda_size: i32,
+              args_ptr: i32,
+              args_size: i32,
+              out_ret: i32,
+              out_ret_size: i32,
+              out_err_code: i32| {
+            tracing::debug!("> __ouroboros__call");
 
-pub struct Call {
-    name: String,
-    args: serde_json::Value,
-    responder: Responder<anyhow::Result<serde_json::Value>>,
-}
+            let cb = cb.clone();
 
-pub struct Deploy {
-    func: Func,
-}
+            Box::new(async move {
+                // Parse arguments, call the function, and process the response
+                let (lambda, args) = {
+                    let mem_data = mem_data(&mut caller);
 
-#[derive(Clone, Debug)]
-pub struct Func {
-    name: String,
-    entrypoint: String,
-    code: Vec<u8>,
-}
+                    check_memory_bounds_and_report_errs(
+                        mem_data,
+                        lambda_ptr,
+                        lambda_size,
+                        args_ptr,
+                        args_size,
+                        out_ret,
+                        out_ret_size,
+                        out_err_code,
+                    );
 
-pub struct VM {
-    store: Box<dyn Store + Send>,
-    event_receiver: Receiver<Event>,
-    event_sender: Sender<Event>,
-}
+                    if version != 1 {
+                        write_err_code(mem_data, out_err_code, ErrorCode::InvalidVersion as i32);
+                    }
 
-impl VM {
-    pub fn new(store: Box<dyn Store + Send>) -> (Self, Sender<Event>) {
-        let (event_sender, event_receiver) = tokio::sync::mpsc::channel(1024);
-        (
-            Self {
-                store,
-                event_receiver,
-                event_sender: event_sender.clone(),
-            },
-            event_sender,
-        )
-    }
-
-    pub async fn run(mut self) {
-        while let Some(event) = self.event_receiver.recv().await {
-            match event {
-                Event::Call(call_fn) => self.call_fn(call_fn).await,
-                Event::Deploy(deploy_fn) => self.deploy_fn(deploy_fn).await,
-                Event::Shutdown => {
-                    break;
-                }
-            }
-        }
-    }
-
-    async fn call_fn(&mut self, call_fn: Call) {
-        let Call {
-            name,
-            args,
-            responder,
-        } = call_fn;
-
-        let func = match self.store.get_func(&name).await {
-            Ok(Some(func)) => func.clone(),
-            _ => {
-                todo!()
-            }
-        };
-
-        let event_sender = self.event_sender.clone();
-        tokio::spawn(async move {
-            let ret = Self::call_in_background(func, args, event_sender).await;
-
-            if let Err(_e) = responder.send(ret) {
-                tracing::error!("`VM::call_fn` response channel is closed");
-            }
-        });
-    }
-
-    async fn deploy_fn(&mut self, deploy_fn: Deploy) {
-        let Deploy { func } = deploy_fn;
-
-        if let Err(_e) = self.store.insert_func(func).await {
-            todo!()
-        }
-    }
-
-    async fn call_in_background(
-        func: Func,
-        args: serde_json::Value,
-        event_sender: Sender<Event>,
-    ) -> anyhow::Result<serde_json::Value> {
-        use wasmtime::Store;
-
-        // Create a new instance
-        let engine = Engine::new(Config::default().async_support(true))?;
-        let mut store = Store::new(&engine, event_sender);
-        let module = Module::new(&engine, &func.code)?;
-        let mut linker = Linker::new(&engine);
-        linker.func_wrap7_async(
-                "env",
-                "__ouroboros__call_fn",
-                move |mut caller: Caller<'_, Sender<Event>>,
-                      lambda_ptr: i32,
-                      lambda_size: i32,
-                      args_ptr: i32,
-                      args_size: i32,
-                      out_ret: i32,
-                      out_ret_size: i32,
-                      out_err_code: i32| {
-                    println!("> __ouroboros__call_fn");
-
-                    // Extract sender
-                    let sender = caller.data().clone();
-
-                    // Load memory
-                    let memory = caller
-                        .get_export("memory")
-                        .expect("wasm memory is unavailable")
-                        .into_memory()
-                        .expect("wasm memory is not memory");
-
-                    Box::new(async move {
-                        { // Check the memory bounds of all pointers
-                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), lambda_ptr, lambda_size) {
-                                tracing::debug!("lambda pointer is out of bounds");
-                                Self::write_err_code_to_memory(
-                                    memory.data_mut(&mut caller),
-                                    out_err_code,
-                                    ErrorCode::MemoryOutOfBounds as i32,
-                                );
-                                return;
-                            }
-                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), args_ptr, args_size) {
-                                tracing::debug!("args pointer is out of bounds");
-                                Self::write_err_code_to_memory(
-                                    memory.data_mut(&mut caller),
-                                    out_err_code,
-                                    ErrorCode::MemoryOutOfBounds as i32,
-                                );
-                                return;
-                            }
-                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), out_ret, 4) {
-                                tracing::debug!("return pointer is out of bounds");
-                                Self::write_err_code_to_memory(
-                                    memory.data_mut(&mut caller),
-                                    out_err_code,
-                                    ErrorCode::MemoryOutOfBounds as i32,
-                                );
-                                return;
-                            }
-                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), out_ret_size, 4) {
-                                tracing::debug!("return pointer is out of bounds");
-                                Self::write_err_code_to_memory(
-                                    memory.data_mut(&mut caller),
-                                    out_err_code,
-                                    ErrorCode::MemoryOutOfBounds as i32,
-                                );
-                                return;
-                            }
-                            if !Self::is_ptr_valid(memory.data_mut(&mut caller), out_err_code, 4) {
-                                // If the err code pointer is out of bounds, then we
-                                // cannot report errs so we do the only thing we
-                                // can: fail silently
-                                tracing::debug!("error code pointer is out of bounds");
-                                return;
-                            }
+                    // Load the function name as a utf8 string
+                    let lambda = ManuallyDrop::new(unsafe {
+                        slice::from_raw_parts(
+                            mem_data[(lambda_ptr as usize)..].as_mut_ptr(),
+                            lambda_size as usize,
+                        )
+                    });
+                    let lambda = match serde_json::from_slice::<Lambda<A, R>>(&lambda) {
+                        Ok(lambda) => lambda,
+                        Err(_) => {
+                            write_err_code(mem_data, out_err_code, ErrorCode::InvalidJson as i32);
+                            return;
                         }
+                    };
 
-                        // Parse arguments, call the function, and process the response
-                        let ret = {
-                            let data = memory.data_mut(&mut caller);
+                    // Parse the args
+                    let args = ManuallyDrop::new(unsafe {
+                        slice::from_raw_parts(
+                            mem_data[(args_ptr as usize)..].as_mut_ptr(),
+                            args_size as usize,
+                        )
+                    });
+                    let args = match serde_json::from_slice::<A>(&args) {
+                        Ok(args) => args,
+                        Err(_) => {
+                            write_err_code(mem_data, out_err_code, ErrorCode::InvalidJson as i32);
+                            return;
+                        }
+                    };
 
-                            // Load the function name as a utf8 string
-                            let lambda = String::from_utf8(unsafe {
-                                Vec::from_raw_parts(
-                                    data[lambda_ptr as usize..].as_mut_ptr(),
-                                    lambda_size as usize,
-                                    lambda_size as usize,
-                                )
-                            })
-                            .map(ManuallyDrop::new);
+                    (lambda, args)
+                };
 
-                            // If the string is invalid, then report the error and
-                            // stop
-                            let lambda = if let Ok(lambda) = lambda {
-                                match serde_json::from_str::<
-                                    Lambda<serde_json::Value, serde_json::Value>,
-                                >(lambda.as_str())
-                                {
-                                    Ok(lambda) => lambda,
-                                    Err(_) => {
-                                        Self::write_err_code_to_memory(
-                                            data,
-                                            out_err_code,
-                                            ErrorCode::InvalidJson as i32,
-                                        );
-                                        return;
-                                    }
-                                }
-                            } else {
-                                Self::write_err_code_to_memory(
-                                    data,
-                                    out_err_code,
-                                    ErrorCode::InvalidUtf8 as i32,
-                                );
-                                return;
-                            };
+                let ret = cb(&mut caller, lambda, args).await;
 
-                            println!("> __ouroboros__call_fn: lambda={:?}", lambda);
+                let ret_json = match serde_json::to_vec(&ret) {
+                    Ok(ret_json) => ret_json,
+                    Err(_) => {
+                        write_err_code(
+                            mem_data(&mut caller),
+                            out_err_code,
+                            ErrorCode::Internal as i32,
+                        );
+                        return;
+                    }
+                };
+                let ret_json_size = ret_json.len();
 
-                            // Parse the args
-                            let args = ManuallyDrop::new(unsafe {
-                                slice::from_raw_parts(
-                                    data[(args_ptr as usize)..].as_mut_ptr(),
-                                    args_size as usize,
-                                )
-                            });
-                            let args = match serde_json::from_slice::<serde_json::Value>(&args) {
-                                Ok(args) => args,
-                                Err(_) => {
-                                    Self::write_err_code_to_memory(
-                                        data,
-                                        out_err_code,
-                                        ErrorCode::InvalidJson as i32,
-                                    );
-                                    return;
-                                }
-                            };
+                let ret_ptr = match alloc_mem(&mut caller, ret_json_size as i32).await {
+                    Some(ret_ptr) => ret_ptr,
+                    None => {
+                        write_err_code(
+                            mem_data(&mut caller),
+                            out_err_code,
+                            ErrorCode::MemoryOutOfBounds as i32,
+                        );
+                        return;
+                    }
+                };
 
-                            println!("> __ouroboros__call_fn: args={:?}", args);
+                let mem_data = mem_data(&mut caller);
 
-                            // FIXME: Need a more intelligent merging of the args
-                            // with the captured args. Because the args could
-                            // represent multiple elements of a tuple.
-                            let mut captured_args = lambda.captured_args;
-                            captured_args.push(args);
+                mem_data[ret_ptr as usize..ret_ptr as usize + ret_json_size]
+                    .copy_from_slice(ret_json.as_slice());
+                mem_data[out_ret as usize..out_ret as usize + 4]
+                    .copy_from_slice(&ret_ptr.to_le_bytes());
+                mem_data[out_ret_size as usize..out_ret_size as usize + 4]
+                    .copy_from_slice(&(ret_json_size as i32).to_le_bytes());
+            })
+        },
+    )?;
 
-                            // Call the function
-                            let (responder, response) = oneshot::channel();
-                            let send_result = sender
-                                .send(Event::Call(Call {
-                                    name: lambda.n,
-                                    args: serde_json::to_value(&captured_args).unwrap(), // FIXME: Bad unwrap
-                                    responder,
-                                }))
-                                .await;
-                            if let Err(_e) = send_result {
-                                tracing::error!("`VM::call_fn` event channel is closed");
-                                Self::write_err_code_to_memory(
-                                    data,
-                                    out_err_code,
-                                    ErrorCode::Internal as i32,
-                                );
-                                return;
-                            }
-                            match response.await {
-                                Ok(ret) => match ret {
-                                    Ok(ret) => ret,
-                                    Err(e) => {
-                                        tracing::error!("`VM::call_fn` bad response: {}", e);
-                                        Self::write_err_code_to_memory(
-                                            data,
-                                            out_err_code,
-                                            ErrorCode::Internal as i32,
-                                        );
-                                        return;
-                                    }
-                                },
-                                Err(_e) => {
-                                    tracing::error!("`VM::call_fn` response channel is closed");
-                                    Self::write_err_code_to_memory(
-                                        data,
-                                        out_err_code,
-                                        ErrorCode::Internal as i32,
-                                    );
-                                    return;
-                                }
-                            }
-                        };
+    // Instantiate the module instance (this must be done after linking all host
+    // functions)
+    let instance = linker.instantiate_async(&mut store, &module).await?;
 
-                        let ret_json = match serde_json::to_vec(&ret) {
-                            Ok(ret_json) => ret_json,
-                            Err(_) => {
-                                let data = memory.data_mut(&mut caller);
-                                Self::write_err_code_to_memory(
-                                    data,
-                                    out_err_code,
-                                    ErrorCode::Internal as i32,
-                                );
-                                return;
-                            }
-                        };
-                        let ret_json_size = ret_json.len();
+    // Load the __ouroboros__ interface
+    let entrypoint = instance.get_typed_func::<i32, i32>(&mut store, entrypoint.as_ref())?;
+    let alloc = instance.get_typed_func::<i32, i32>(&mut store, "__ouroboros__alloc")?;
+    let free = instance.get_typed_func::<(i32, i32), ()>(&mut store, "__ouroboros__free")?;
 
-                        let ret_ptr = match Self::alloc_mem(&mut caller, ret_json_size as i32).await {
-                            Some(ret_ptr) => ret_ptr,
-                            None => {
-                                Self::write_err_code_to_memory(
-                                    memory.data_mut(&mut caller),
-                                    out_err_code,
-                                    ErrorCode::MemoryOutOfBounds as i32,
-                                );
-                                return;
-                            }
-                        };
+    // Alloc enough memory for the args
+    let args = CString::new(serde_json::to_string(&args)?)?;
+    let args_size = args.as_bytes_with_nul().len();
+    let args_ptr = alloc.call_async(&mut store, args_size as i32).await?;
 
-                        let data = memory.data_mut(&mut caller);
-                        data[ret_ptr as usize..ret_ptr as usize + ret_json_size]
-                            .copy_from_slice(ret_json.as_slice());
-                        data[out_ret as usize..out_ret as usize + 4]
-                            .copy_from_slice(&ret_ptr.to_le_bytes());
-                        data[out_ret_size as usize..out_ret_size as usize + 4]
-                            .copy_from_slice(&(ret_json_size as i32).to_le_bytes());
-                    })
-                },
-            )?;
-
-        let instance = linker.instantiate_async(&mut store, &module).await?;
-
-        // Load the standard library
-        let alloc = instance.get_typed_func::<i32, i32>(&mut store, "__ouroboros__alloc")?;
-        let free = instance.get_typed_func::<(i32, i32), ()>(&mut store, "__ouroboros__free")?;
-
-        // Load the entrypoint
-        let entrypoint = instance.get_typed_func::<i32, i32>(&mut store, &func.entrypoint)?;
-        let memory = instance
+    // Check that the allocated args pointer is actuall valid
+    if !is_ptr_valid(
+        instance
             .get_memory(&mut store, "memory")
-            .expect("memory must be available");
-
-        // Alloc enough memory for the args and inject them into memory
-        let args = CString::new(serde_json::to_string(&args)?)?;
-        let args_size = args.as_bytes_with_nul().len();
-        let args_ptr = alloc.call_async(&mut store, args_size as i32).await?; // FIXME: We cannot blindly trust the allocated pointer
-        let data = &mut memory.data_mut(&mut store);
-        data[(args_ptr as usize)..(args_ptr as usize + args_size)]
-            .copy_from_slice(args.as_bytes_with_nul());
-
-        // Load the return value
-        let ret_ptr = entrypoint.call_async(&mut store, args_ptr).await?;
-        let memory = instance
-            .get_memory(&mut store, "memory")
-            .expect("memory must be available");
-        let data = &mut memory.data_mut(&mut store)[(ret_ptr as usize)..]; // FIXME: We cannot blindly trust that the return C string is actually null terminated
-        let ret = serde_json::from_slice(
-            ManuallyDrop::new(unsafe { CString::from_raw(data.as_mut_ptr() as *mut i8) })
-                .as_bytes(),
-        )?;
-
-        // Free the allocated memory
-        free.call_async(&mut store, (args_ptr, args_size as i32))
-            .await?;
-
-        Ok(ret)
+            .expect("memory must be available")
+            .data_mut(&mut store),
+        args_ptr,
+        args_size as i32,
+    ) {
+        return Err(anyhow::anyhow!("invalid memory pointer"));
     }
 
-    /// Writes an `ErrCode` to a slice of data. This slice of data is assumed to
-    /// represent the linear memory of a WASM module.
-    fn write_err_code_to_memory(mem: &mut [u8], index: i32, err_code: i32) {
-        tracing::debug!("`__ouroboros__call_fn` error code: {}", err_code);
+    // Copy the args into memory
+    instance
+        .get_memory(&mut store, "memory")
+        .expect("memory must be available")
+        .data_mut(&mut store)[(args_ptr as usize)..(args_ptr as usize + args_size)]
+        .copy_from_slice(args.as_bytes_with_nul());
 
-        mem[index as usize..index as usize + 4].copy_from_slice(&err_code.to_le_bytes());
+    // Load the return value
+    let ret_ptr = entrypoint.call_async(&mut store, args_ptr).await?;
+    let ret_data = &mut instance
+        .get_memory(&mut store, "memory")
+        .expect("memory must be available")
+        .data_mut(&mut store)[(ret_ptr as usize)..]; // FIXME: We cannot blindly trust that the return C string is actually null terminated
+    let ret = serde_json::from_slice(
+        ManuallyDrop::new(unsafe { CString::from_raw(ret_data.as_mut_ptr() as *mut i8) })
+            .as_bytes(),
+    )?;
+
+    // Free the allocated memory
+    free.call_async(&mut store, (args_ptr, args_size as i32))
+        .await?;
+
+    Ok(ret)
+}
+
+/// Helper function for getting the underlying data of the WASM memory.
+pub fn mem_data<'a, T>(caller: &'a mut Caller<'_, T>) -> &'a mut [u8] {
+    caller
+        .get_export("memory")
+        .expect("wasm memory is unavailable")
+        .into_memory()
+        .expect("wasm memory is not memory")
+        .data_mut(caller)
+}
+
+/// Allocate memory for a WASM module. Returns the pointer to the allocated
+/// memory. Returns `None` if the allocated memory is invalid.
+pub async fn alloc_mem<T>(mut caller: &mut Caller<'_, T>, size: i32) -> Option<i32>
+where
+    T: Send,
+{
+    let memory = caller
+        .get_export("memory")
+        .expect("memory must be unavailable")
+        .into_memory()
+        .expect("memory must be a memory block");
+
+    let alloc = caller
+        .get_export("__ouroboros__alloc")
+        .expect("alloc must be unavailable")
+        .into_func()
+        .expect("alloc must be a function");
+
+    let mut ptr = [Val::I32(0)];
+    alloc
+        .call_async(&mut caller, &[Val::I32(size)], &mut ptr)
+        .await
+        .expect("async must be ok"); // FIXME: Is it ok to expect this call to succeed?
+    let ptr = ptr[0].unwrap_i32();
+
+    is_ptr_valid(memory.data(caller), ptr, size).then_some(ptr)
+}
+
+/// Check all of the input and output pointers. They must point to somewhere in
+/// the WASM memory and their size must not cause them to overflow.
+pub fn check_memory_bounds_and_report_errs(
+    mem_data: &mut [u8],
+    lambda_ptr: i32,
+    lambda_size: i32,
+    args_ptr: i32,
+    args_size: i32,
+    out_ret: i32,
+    out_ret_size: i32,
+    out_err_code: i32,
+) -> bool {
+    // Check the memory pointed to by the err code pointer.
+    if !is_ptr_valid(mem_data, out_err_code, 4) {
+        // If the err code pointer is out of bounds, then we
+        // cannot report errs so we do the only thing we
+        // can: fail silently.
+        tracing::debug!("error code pointer is out of bounds");
+        return false;
     }
 
-    /// Check the memory bounds of a slice of data. This slice of data is
-    /// assumed to represent the linear memory of a WASM module. Returns true if
-    /// the memory bounds are valid.
-    fn is_ptr_valid(mem: &[u8], ptr: i32, size: i32) -> bool {
-        (ptr as usize) < mem.len() && (ptr + size) as usize <= mem.len()
+    // Check the memory bounds of all pointers
+    if !is_ptr_valid(mem_data, lambda_ptr, lambda_size) {
+        tracing::debug!("lambda pointer is out of bounds");
+        write_err_code(mem_data, out_err_code, ErrorCode::MemoryOutOfBounds as i32);
+        return false;
+    }
+    if !is_ptr_valid(mem_data, args_ptr, args_size) {
+        tracing::debug!("args pointer is out of bounds");
+        write_err_code(mem_data, out_err_code, ErrorCode::MemoryOutOfBounds as i32);
+        return false;
+    }
+    if !is_ptr_valid(mem_data, out_ret, 4) {
+        tracing::debug!("return pointer is out of bounds");
+        write_err_code(mem_data, out_err_code, ErrorCode::MemoryOutOfBounds as i32);
+        return false;
+    }
+    if !is_ptr_valid(mem_data, out_ret_size, 4) {
+        tracing::debug!("return pointer is out of bounds");
+        write_err_code(mem_data, out_err_code, ErrorCode::MemoryOutOfBounds as i32);
+        return false;
     }
 
-    /// Allocate memory for a WASM module. Returns the pointer to the allocated
-    /// memory. Returns `None` if the allocated memory is invalid.
-    async fn alloc_mem<T>(mut caller: &mut Caller<'_, T>, size: i32) -> Option<i32>
-    where
-        T: Send,
-    {
-        let memory = caller
-            .get_export("memory")
-            .expect("memory must be unavailable")
-            .into_memory()
-            .expect("memory must be memory");
+    return true;
+}
 
-        let alloc = caller
-            .get_export("__ouroboros__alloc")
-            .expect("alloc must be unavailable")
-            .into_func()
-            .expect("alloc must be a function");
+/// Writes an `ErrCode` to a slice of data. This slice of data is assumed to
+/// represent the linear memory of a WASM module.
+pub fn write_err_code(mem_data: &mut [u8], out_err_code: i32, err_code: i32) {
+    tracing::debug!("`__ouroboros__call` error code: {}", err_code);
 
-        let mut ptr = [Val::I32(0)];
-        alloc
-            .call_async(&mut caller, &[Val::I32(size)], &mut ptr)
-            .await
-            .expect("async call should succeed"); // FIXME: Is it ok to expect this call to succeed?
-        let ptr = ptr[0].unwrap_i32();
+    mem_data[out_err_code as usize..out_err_code as usize + 4]
+        .copy_from_slice(&err_code.to_le_bytes());
+}
 
-        Self::is_ptr_valid(memory.data(caller), ptr, size).then_some(ptr)
+/// Check the memory bounds of a slice of data. This slice of data is assumed to
+/// represent the linear memory of a WASM module. Returns true if the memory
+/// bounds are valid.
+pub fn is_ptr_valid(mem_data: &[u8], ptr: i32, size: i32) -> bool {
+    if ptr < 0 {
+        return false;
     }
+    if size < 1 {
+        return false;
+    }
+    (ptr as usize) < mem_data.len() && (ptr + size) as usize <= mem_data.len()
 }
 
 #[cfg(target_arch = "wasm32")]

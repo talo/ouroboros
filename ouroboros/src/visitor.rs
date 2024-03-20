@@ -1,8 +1,8 @@
 use serde_json::{Map, Value};
 
 use crate::{
-    Alias, Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, Optional, Ptr, Record,
-    Symbolic, Tuple, Type, Union, UnionVariant,
+    Alias, Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, NamedField, Optional, Ptr,
+    Record, Symbolic, Tuple, Type, Union, UnionVariant, UnnamedField,
 };
 
 pub trait ValueVisitor {
@@ -728,6 +728,232 @@ pub trait TypeVisitor {
     }
 }
 
+pub trait TypeMapper {
+    type Error;
+
+    fn visit_type(&mut self, ty: &Type) -> Result<Type, Self::Error> {
+        match ty {
+            Type::Unit => self.visit_unit(),
+            Type::Bool => self.visit_bool(),
+            Type::U8 => self.visit_u8(),
+            Type::U16 => self.visit_u16(),
+            Type::U32 => self.visit_u32(),
+            Type::U64 => self.visit_u64(),
+            Type::U128 => self.visit_u128(),
+            Type::I8 => self.visit_i8(),
+            Type::I16 => self.visit_i16(),
+            Type::I32 => self.visit_i32(),
+            Type::I64 => self.visit_i64(),
+            Type::I128 => self.visit_i128(),
+            Type::F32 => self.visit_f32(),
+            Type::F64 => self.visit_f64(),
+            Type::String => self.visit_string(),
+            Type::Array(arr) => self.visit_array(arr),
+            Type::Func(func) => self.visit_func(func),
+            Type::Record(rec) => match &rec.fields {
+                Fields::Named(_) => self.visit_record_with_named_fields(rec),
+                Fields::Unnamed(_) => self.visit_record_with_unnamed_fields(rec),
+            },
+            Type::Tuple(tup) => self.visit_tuple(tup),
+            Type::Enum(enm) => self.visit_enum(enm),
+            Type::Optional(opt) => self.visit_optional(opt),
+            Type::Union(union) => self.visit_union(union),
+            Type::Ptr(p) => self.visit_ptr(p),
+            Type::Symbolic(sym) => self.visit_symbolic(sym),
+            Type::Generic(gen) => self.visit_generic(gen),
+            Type::Alias(alias) => self.visit_alias(alias),
+        }
+    }
+
+    fn visit_unit(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::Unit)
+    }
+
+    fn visit_bool(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::Bool)
+    }
+
+    fn visit_u8(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::U8)
+    }
+
+    fn visit_u16(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::U16)
+    }
+
+    fn visit_u32(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::U32)
+    }
+
+    fn visit_u64(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::U64)
+    }
+
+    fn visit_u128(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::U128)
+    }
+
+    fn visit_i8(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::I8)
+    }
+
+    fn visit_i16(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::I16)
+    }
+
+    fn visit_i32(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::I32)
+    }
+
+    fn visit_i64(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::I64)
+    }
+
+    fn visit_i128(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::I128)
+    }
+
+    fn visit_f32(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::F32)
+    }
+
+    fn visit_f64(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::F64)
+    }
+
+    fn visit_string(&mut self) -> Result<Type, Self::Error> {
+        Ok(Type::String)
+    }
+
+    fn visit_array(&mut self, arr: &Array) -> Result<Type, Self::Error> {
+        Ok(Type::from(Array::new(self.visit_type(arr.t.as_ref())?)))
+    }
+
+    fn visit_func(&mut self, func: &Func) -> Result<Type, Self::Error> {
+        Ok(Type::from(Func::new(
+            self.visit_type(func.a.as_ref())?,
+            self.visit_type(func.b.as_ref())?,
+        )))
+    }
+
+    fn visit_record_with_named_fields(&mut self, rec: &Record) -> Result<Type, Self::Error> {
+        let fields = rec
+            .fields
+            .as_named()
+            .unwrap()
+            .iter()
+            .map(|field| Ok(NamedField::new(field.n.clone(), self.visit_type(&field.t)?)))
+            .collect::<Result<Vec<NamedField>, _>>()?;
+        if let Some(doc) = &rec.doc {
+            Ok(Type::from(Record::with_doc(
+                doc.clone(),
+                rec.n.clone(),
+                fields,
+            )))
+        } else {
+            Ok(Type::from(Record::new(rec.n.clone(), fields)))
+        }
+    }
+
+    fn visit_record_with_unnamed_fields(&mut self, rec: &Record) -> Result<Type, Self::Error> {
+        let fields = rec
+            .fields
+            .as_unnamed()
+            .unwrap()
+            .iter()
+            .map(|field| Ok(self.visit_type(&field.t)?))
+            .collect::<Result<Vec<Type>, _>>()?;
+        if let Some(doc) = &rec.doc {
+            Ok(Type::from(Record::with_doc(
+                doc.clone(),
+                rec.n.clone(),
+                fields,
+            )))
+        } else {
+            Ok(Type::from(Record::new(rec.n.clone(), fields)))
+        }
+    }
+
+    fn visit_tuple(&mut self, tup: &Tuple) -> Result<Type, Self::Error> {
+        let fields = tup
+            .fields
+            .iter()
+            .map(|field| Ok(self.visit_type(&field.t)?))
+            .collect::<Result<Vec<Type>, _>>()?;
+        Ok(Type::from(Tuple::new(fields)))
+    }
+
+    fn visit_enum(&mut self, enm: &Enum) -> Result<Type, Self::Error> {
+        Ok(Type::from(enm.clone()))
+    }
+
+    fn visit_optional(&mut self, opt: &Optional) -> Result<Type, Self::Error> {
+        Ok(Type::from(Optional::new(self.visit_type(opt.t.as_ref())?)))
+    }
+
+    fn visit_union(&mut self, union: &Union) -> Result<Type, Self::Error> {
+        let variants = union
+            .variants
+            .iter()
+            .map(|variant| {
+                if let Some(fields) = &variant.fields {
+                    Ok(UnionVariant::with_fields(
+                        variant.n.clone(),
+                        match fields {
+                            Fields::Named(fields) => Fields::Named(
+                                fields
+                                    .iter()
+                                    .map(|field| {
+                                        Ok(NamedField::new(
+                                            field.n.clone(),
+                                            self.visit_type(&field.t)?,
+                                        ))
+                                    })
+                                    .collect::<Result<Vec<NamedField>, _>>()?
+                                    .into(),
+                            ),
+                            Fields::Unnamed(fields) => Fields::Unnamed(
+                                fields
+                                    .iter()
+                                    .map(|field| Ok(UnnamedField::new(self.visit_type(&field.t)?)))
+                                    .collect::<Result<Vec<UnnamedField>, _>>()?
+                                    .into(),
+                            ),
+                        },
+                    ))
+                } else {
+                    Ok(UnionVariant::new(variant.n.clone()))
+                }
+            })
+            .collect::<Result<Vec<UnionVariant>, _>>()?;
+        if let Some(doc) = &union.doc {
+            Ok(Type::from(Union::with_doc(
+                doc.clone(),
+                union.n.clone(),
+                variants,
+            )))
+        } else {
+            Ok(Type::from(Union::new(union.n.clone(), variants)))
+        }
+    }
+
+    fn visit_ptr(&mut self, p: &Ptr) -> Result<Type, Self::Error> {
+        Ok(Type::from(Ptr::new(self.visit_type(p.t.as_ref())?)))
+    }
+
+    fn visit_symbolic(&mut self, sym: &Symbolic) -> Result<Type, Self::Error> {
+        Ok(Type::from(sym.clone()))
+    }
+
+    fn visit_generic(&mut self, gen: &Generic) -> Result<Type, Self::Error> {
+        Ok(Type::from(gen.clone()))
+    }
+
+    fn visit_alias(&mut self, alias: &Alias) -> Result<Type, Self::Error> {
+        Ok(Type::from(alias.clone()))
+    }
+}
+
 pub fn walk_type<V>(v: &mut V, t: &Type) -> Result<(), V::Error>
 where
     V: TypeVisitor,
@@ -821,7 +1047,7 @@ macro_rules! unsigned_int_range_check {
         $v.and_then(|$v| $v.as_u64())
             .and_then(|$v| ($v <= $uint::MAX as u64).then_some(()))
             .ok_or(Error::$err {
-                got: $v.cloned().unwrap_or(serde_json::Value::Null),
+                got: $v.cloned().unwrap_or(::serde_json::Value::Null),
             })
     };
 }
@@ -832,7 +1058,7 @@ macro_rules! signed_int_range_check {
         $v.and_then(|$v| $v.as_i64())
             .and_then(|$v| ($v >= $sint::MIN as i64 && $v <= $sint::MAX as i64).then_some(()))
             .ok_or(Error::$err {
-                got: $v.cloned().unwrap_or(serde_json::Value::Null),
+                got: $v.cloned().unwrap_or(::serde_json::Value::Null),
             })
     };
 }
@@ -845,7 +1071,7 @@ macro_rules! float_range_check {
                 Ok(())
             } else {
                 Err(Error::$err {
-                    got: $v.cloned().unwrap_or(serde_json::Value::Null),
+                    got: $v.cloned().unwrap_or(::serde_json::Value::Null),
                 })
             }
         } else if let Some(x) = $v.and_then(|$v| $v.as_i64()) {
@@ -853,7 +1079,7 @@ macro_rules! float_range_check {
                 Ok(())
             } else {
                 Err(Error::$err {
-                    got: $v.cloned().unwrap_or(serde_json::Value::Null),
+                    got: $v.cloned().unwrap_or(::serde_json::Value::Null),
                 })
             }
         } else if let Some(x) = $v.and_then(|$v| $v.as_u64()) {
@@ -861,12 +1087,12 @@ macro_rules! float_range_check {
                 Ok(())
             } else {
                 Err(Error::$err {
-                    got: $v.cloned().unwrap_or(serde_json::Value::Null),
+                    got: $v.cloned().unwrap_or(::serde_json::Value::Null),
                 })
             }
         } else {
             Err(Error::$err {
-                got: $v.cloned().unwrap_or(serde_json::Value::Null),
+                got: $v.cloned().unwrap_or(::serde_json::Value::Null),
             })
         }
     };
