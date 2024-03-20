@@ -223,6 +223,7 @@ where
 
 /// Check all of the input and output pointers. They must point to somewhere in
 /// the WASM memory and their size must not cause them to overflow.
+#[allow(clippy::too_many_arguments)]
 pub fn check_memory_bounds_and_report_errs(
     mem_data: &mut [u8],
     lambda_ptr: i32,
@@ -264,7 +265,7 @@ pub fn check_memory_bounds_and_report_errs(
         return false;
     }
 
-    return true;
+    true
 }
 
 /// Writes an `ErrCode` to a slice of data. This slice of data is assumed to

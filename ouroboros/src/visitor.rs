@@ -157,7 +157,7 @@ pub fn walk_value<V>(v: &mut V, t: &Type, val: &Value) -> Result<(), V::Error>
 where
     V: ValueVisitor,
 {
-    if !t.is_compat(Some(val)).is_ok() {
+    if t.is_compat(Some(val)).is_err() {
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
@@ -457,7 +457,7 @@ pub fn walk_value_mut<V>(v: &mut V, t: &Type, val: &mut Value) -> Result<(), V::
 where
     V: MutableValueVisitor,
 {
-    if !t.is_compat(Some(val)).is_ok() {
+    if t.is_compat(Some(val)).is_err() {
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
@@ -861,7 +861,7 @@ pub trait TypeMapper {
             .as_unnamed()
             .unwrap()
             .iter()
-            .map(|field| Ok(self.visit_type(&field.t)?))
+            .map(|field| self.visit_type(&field.t))
             .collect::<Result<Vec<Type>, _>>()?;
         if let Some(doc) = &rec.doc {
             Ok(Type::from(Record::with_doc(
@@ -878,7 +878,7 @@ pub trait TypeMapper {
         let fields = tup
             .fields
             .iter()
-            .map(|field| Ok(self.visit_type(&field.t)?))
+            .map(|field| self.visit_type(&field.t))
             .collect::<Result<Vec<Type>, _>>()?;
         Ok(Type::from(Tuple::new(fields)))
     }
