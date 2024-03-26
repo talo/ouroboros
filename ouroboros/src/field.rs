@@ -2,7 +2,7 @@ use std::vec::IntoIter;
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    slice::Iter,
+    slice::{Iter, IterMut},
 };
 
 use crate::{Error, Result, Type};
@@ -23,6 +23,10 @@ impl NamedFields {
 
     pub fn iter(&self) -> Iter<'_, NamedField> {
         self.fields.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<'_, NamedField> {
+        self.fields.iter_mut()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -140,6 +144,10 @@ impl UnnamedFields {
 
     pub fn iter(&self) -> Iter<'_, UnnamedField> {
         self.fields.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> IterMut<'_, UnnamedField> {
+        self.fields.iter_mut()
     }
 
     pub fn is_empty(&self) -> bool {
