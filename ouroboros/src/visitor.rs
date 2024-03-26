@@ -529,7 +529,7 @@ where
                 }
                 Ok(())
             } else {
-                panic!("record fields are neither named or unnamed")
+                Ok(())
             }
         }
         Type::Tuple(tup) => {
