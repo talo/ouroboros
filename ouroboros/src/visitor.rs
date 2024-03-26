@@ -304,7 +304,7 @@ pub trait MutableValueVisitor {
     fn visit_unit(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn visit_bool(&mut self, _val: &mut bool) -> Result<(), Self::Error> {
+    fn visit_bool(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -312,47 +312,47 @@ pub trait MutableValueVisitor {
         Ok(())
     }
 
-    fn visit_u16(&mut self, _val: &mut u16) -> Result<(), Self::Error> {
+    fn visit_u16(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_u32(&mut self, _val: &mut u32) -> Result<(), Self::Error> {
+    fn visit_u32(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_u64(&mut self, _val: &mut u64) -> Result<(), Self::Error> {
+    fn visit_u64(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_u128(&mut self, _val: &mut u128) -> Result<(), Self::Error> {
+    fn visit_u128(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_i8(&mut self, _val: &mut i8) -> Result<(), Self::Error> {
+    fn visit_i8(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_i16(&mut self, _val: &mut i16) -> Result<(), Self::Error> {
+    fn visit_i16(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_i32(&mut self, _val: &mut i32) -> Result<(), Self::Error> {
+    fn visit_i32(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_i64(&mut self, _val: &mut i64) -> Result<(), Self::Error> {
+    fn visit_i64(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_i128(&mut self, _val: &mut i128) -> Result<(), Self::Error> {
+    fn visit_i128(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_f32(&mut self, _val: &mut f32) -> Result<(), Self::Error> {
+    fn visit_f32(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn visit_f64(&mut self, _val: &mut f64) -> Result<(), Self::Error> {
+    fn visit_f64(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -465,19 +465,19 @@ where
 
     match t {
         Type::Unit => v.visit_unit(val),
-        Type::Bool => v.visit_bool(&mut val.as_bool().expect("value should be bool")),
+        Type::Bool => v.visit_bool(val),
         Type::U8 => v.visit_u8(val),
-        Type::U16 => v.visit_u16(&mut (val.as_u64().expect("value should be u16") as u16)),
-        Type::U32 => v.visit_u32(&mut (val.as_u64().expect("value should be u32") as u32)),
-        Type::U64 => v.visit_u64(&mut (val.as_u64().expect("value should be u64"))),
-        Type::U128 => v.visit_u128(&mut (val.as_u64().expect("value should be u128") as u128)),
-        Type::I8 => v.visit_i8(&mut (val.as_i64().expect("value should be i8") as i8)),
-        Type::I16 => v.visit_i16(&mut (val.as_i64().expect("value should be i16") as i16)),
-        Type::I32 => v.visit_i32(&mut (val.as_i64().expect("value should be i32") as i32)),
-        Type::I64 => v.visit_i64(&mut (val.as_i64().expect("value should be i64"))),
-        Type::I128 => v.visit_i128(&mut (val.as_i64().expect("value should be i128") as i128)),
-        Type::F32 => v.visit_f32(&mut (val.as_f64().expect("value should be f32") as f32)),
-        Type::F64 => v.visit_f64(&mut (val.as_f64().expect("value should be f64"))),
+        Type::U16 => v.visit_u16(val),
+        Type::U32 => v.visit_u32(val),
+        Type::U64 => v.visit_u64(val),
+        Type::U128 => v.visit_u128(val),
+        Type::I8 => v.visit_i8(val),
+        Type::I16 => v.visit_i16(val),
+        Type::I32 => v.visit_i32(val),
+        Type::I64 => v.visit_i64(val),
+        Type::I128 => v.visit_i128(val),
+        Type::F32 => v.visit_f32(val),
+        Type::F64 => v.visit_f64(val),
         Type::String => v.visit_string(match val {
             Value::String(string) => string,
             _ => panic!("value should be string"),
@@ -548,6 +548,7 @@ where
             Value::String(string) => {
                 for variant in &enm.variants {
                     if string == &variant.n {
+                        // TODO: make optional mutable within visit_enum_variant_string
                         return v.visit_enum_variant_string(enm, variant, string);
                     }
                 }
@@ -556,6 +557,7 @@ where
             Value::Number(num) => {
                 for variant in &enm.variants {
                     if num.as_u64() == variant.v.map(|y| y as u64) {
+                        // TODO: make enum mutable within visit_enum_variant_const_value
                         return v.visit_enum_variant_const_value(
                             enm,
                             variant,
@@ -569,6 +571,7 @@ where
         },
         Type::Optional(opt) => {
             if val.is_null() {
+                // TODO: make enum mutable within visit_optional
                 v.visit_optional(opt, &mut None)
             } else {
                 v.visit_optional(opt, &mut Some(val))?;
@@ -579,6 +582,7 @@ where
             Value::String(string) => {
                 for variant in &union.variants {
                     if variant.fields.is_none() && string == &variant.n {
+                        // TODO: make union and variant optional within visit_union_variant_string
                         return v.visit_union_variant_string(union, variant, string);
                     }
                 }
@@ -595,6 +599,7 @@ where
                         })
                         .unwrap_or(false)
                     {
+                        // TODO: make union and variant optional within visit_union_variant_string
                         return v.visit_union_variant_fields(union, variant, object);
                     }
                 }
@@ -602,6 +607,7 @@ where
             }
             _ => panic!("value should be union variant"),
         },
+        // TODO: make the below functions take mutable parameters
         Type::Ptr(p) => v.visit_ptr(p, val.as_str().expect("value should be pointer")),
         Type::Symbolic(sym) => v.visit_symbolic(sym, val.as_str().expect("value should be symbol")),
         Type::Generic(gen) => v.visit_generic(gen, val.as_str().expect("value should be generic")),
@@ -1150,7 +1156,7 @@ mod test {
     }
 
     #[test]
-    fn test_walk_u8() {
+    fn test_walk_value_mutable_with_u8() {
         let num: u8 = 1;
         let mut num_value = serde_json::to_value(num).unwrap();
 
