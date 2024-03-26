@@ -5,7 +5,7 @@ use ouroboros_wasm::ErrorCode;
 use serde::{Deserialize, Serialize};
 use wasmtime::{Caller, Config, Engine, Linker, Module, Store, Val};
 
-pub async fn thunk_in_background<S, A, R, Fut>(
+pub async fn thunk_in_background<S, A, R, X, Fut>(
     bytecode: impl AsRef<[u8]>,
     entrypoint: impl AsRef<str>,
     initial_state: S,
@@ -16,7 +16,8 @@ where
     S: Send,
     for<'de> A: Deserialize<'de> + Serialize,
     for<'de> R: Deserialize<'de>,
-    Fut: Future<Output = ()> + Send + Unpin,
+    X: Serialize + Send,
+    Fut: Future<Output = X> + Send + Unpin,
 {
     let engine = Engine::new(Config::default().async_support(true))?;
     let module = Module::new(&engine, bytecode)?;
@@ -93,8 +94,9 @@ where
                     (lambda, args)
                 };
 
+                // Invoke the callback and then serialize the returned value so
+                // that it can be passed back to the WASM module
                 let ret = cb(&mut caller, lambda, args).await;
-
                 let ret_json = match serde_json::to_vec(&ret) {
                     Ok(ret_json) => ret_json,
                     Err(_) => {
@@ -108,6 +110,8 @@ where
                 };
                 let ret_json_size = ret_json.len();
 
+                // Allocate a pointer in the memory of the WASM module that we
+                // can use to store the return value
                 let ret_ptr = match alloc_mem(&mut caller, ret_json_size as i32).await {
                     Some(ret_ptr) => ret_ptr,
                     None => {
@@ -121,7 +125,6 @@ where
                 };
 
                 let mem_data = mem_data(&mut caller);
-
                 mem_data[ret_ptr as usize..ret_ptr as usize + ret_json_size]
                     .copy_from_slice(ret_json.as_slice());
                 mem_data[out_ret as usize..out_ret as usize + 4]
@@ -223,6 +226,7 @@ where
 
 /// Check all of the input and output pointers. They must point to somewhere in
 /// the WASM memory and their size must not cause them to overflow.
+#[allow(clippy::too_many_arguments)]
 pub fn check_memory_bounds_and_report_errs(
     mem_data: &mut [u8],
     lambda_ptr: i32,
@@ -264,7 +268,7 @@ pub fn check_memory_bounds_and_report_errs(
         return false;
     }
 
-    return true;
+    true
 }
 
 /// Writes an `ErrCode` to a slice of data. This slice of data is assumed to
