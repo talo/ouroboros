@@ -308,7 +308,7 @@ pub trait MutableValueVisitor {
         Ok(())
     }
 
-    fn visit_u8(&mut self, _val: &mut u8) -> Result<(), Self::Error> {
+    fn visit_u8(&mut self, _val: &mut Value) -> Result<(), Self::Error> {
         Ok(())
     }
 
@@ -466,7 +466,7 @@ where
     match t {
         Type::Unit => v.visit_unit(val),
         Type::Bool => v.visit_bool(&mut val.as_bool().expect("value should be bool")),
-        Type::U8 => v.visit_u8(&mut (val.as_u64().expect("value should be u8") as u8)),
+        Type::U8 => v.visit_u8(val),
         Type::U16 => v.visit_u16(&mut (val.as_u64().expect("value should be u16") as u16)),
         Type::U32 => v.visit_u32(&mut (val.as_u64().expect("value should be u32") as u32)),
         Type::U64 => v.visit_u64(&mut (val.as_u64().expect("value should be u64"))),
@@ -1108,4 +1108,60 @@ macro_rules! float_range_check {
             })
         }
     };
+}
+
+#[cfg(test)]
+
+mod test {
+    use super::*;
+    use crate::TypeInfo;
+
+    #[cfg(feature = "serde")]
+    pub struct U8MutableValueVisitor<F, Error>
+    where
+        F: FnMut(&mut u8, &Type) -> Result<(), Error>,
+    {
+        f: F,
+    }
+
+    #[cfg(feature = "serde")]
+    impl<F, Error> U8MutableValueVisitor<F, Error>
+    where
+        F: FnMut(&mut u8, &Type) -> Result<(), Error>,
+    {
+        pub fn new(f: F) -> Self {
+            Self { f }
+        }
+    }
+
+    impl<F, Error> MutableValueVisitor for U8MutableValueVisitor<F, Error>
+    where
+        F: FnMut(&mut u8, &Type) -> Result<(), Error>,
+    {
+        fn visit_u8(&mut self, val: &mut Value) -> Result<(), Error> {
+            let mut num = val.as_u64().expect("value should be u8") as u8;
+            let _ = (self.f)(&mut num, &u8::t());
+
+            *val = serde_json::to_value(num).unwrap();
+
+            Ok(())
+        }
+        type Error = Error;
+    }
+
+    #[test]
+    fn test_walk_u8() {
+        let num: u8 = 1;
+        let mut num_value = serde_json::to_value(num).unwrap();
+
+        let mut visited = 0;
+        let mut visitor = U8MutableValueVisitor::new(|num: &mut u8, _t| {
+            *num = 2;
+            visited += 1;
+            Ok::<(), ()>(())
+        });
+        walk_value_mut(&mut visitor, &mut u8::t(), &mut num_value).unwrap();
+        assert_eq!(visited, 1);
+        assert_eq!(num_value.as_u64().unwrap(), 2);
+    }
 }
