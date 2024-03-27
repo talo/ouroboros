@@ -157,7 +157,8 @@ pub fn walk_value<V>(v: &mut V, t: &Type, val: &Value) -> Result<(), V::Error>
 where
     V: ValueVisitor,
 {
-    if t.is_compat(Some(val)).is_err() {
+    if let Err(err) = t.is_compat(Some(val)) {
+        println!("err: {:?}", err);
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
@@ -457,7 +458,8 @@ pub fn walk_value_mut<V>(v: &mut V, t: &mut Type, val: &mut Value) -> Result<(),
 where
     V: MutableValueVisitor,
 {
-    if t.is_compat(Some(val)).is_err() {
+    if let Err(err) = t.is_compat(Some(val)) {
+        println!("err: {:?}", err);
         println!("t: {:?}", t);
         println!("val: {:?}", val);
         todo!()
