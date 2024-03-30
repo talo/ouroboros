@@ -7,7 +7,9 @@ version.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ouroboros = { path = "../ouroboros" }
-ouroboros-wasm = { path = "../ouroboros-wasm" }
+ouroboros = { path = "../ouroboros", default-features = false, features = [
+    "serde",
+] }
+ouroboros-wasm = { path = "../ouroboros-wasm", default-features = false }
 serde = { version = "1.0" }
-serde_json = { version = "1.0", features = ['preserve_order'] }
+serde_json = { version = "1.0" }

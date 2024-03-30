@@ -293,6 +293,43 @@ pub fn is_ptr_valid(mem_data: &[u8], ptr: i32, size: i32) -> bool {
     (ptr as usize) < mem_data.len() && (ptr + size) as usize <= mem_data.len()
 }
 
+#[cfg(test)]
+mod test {
+    use ouroboros::Lambda;
+    use wasmtime::Caller;
+
+    #[tokio::test]
+    async fn map() -> anyhow::Result<()> {
+        let result: anyhow::Result<serde_json::Value> = super::thunk_in_background(
+            include_bytes!("../../target/wasm32-unknown-unknown/debug/ouroboros_vm_prelude.wasm"),
+            "__entrypoint__map",
+            (),
+            serde_json::to_value((
+                ouroboros::Lambda::<serde_json::Value, serde_json::Value>::with_captured_args(
+                    "mul_u32",
+                    vec![serde_json::json!(2u32)],
+                ),
+                vec![
+                    serde_json::json!(1u32),
+                    serde_json::json!(2u32),
+                    serde_json::json!(3u32),
+                ],
+            ))?,
+            // This is the main thing we have to pay attention to. It gets
+            // called whenever the thunk calls `__ouroboros__call`.
+            |caller: &mut Caller<'_, ()>,
+             lambda: Lambda<serde_json::Value, serde_json::Value>,
+             args: serde_json::Value| {
+                println!("vm: callback target={}", lambda.n);
+                Box::pin(async move { serde_json::to_value(1).map_err(|e| e.to_string()) })
+            },
+        )
+        .await;
+        result.unwrap();
+        Ok(())
+    }
+}
+
 #[cfg(target_arch = "wasm32")]
 #[cfg(test)]
 mod test {

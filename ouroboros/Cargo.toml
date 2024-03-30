@@ -15,8 +15,7 @@ sqlx = { version = "0.7", features = ["postgres"], optional = true }
 thiserror = { version = "1.0" }
 
 [features]
-default = ["arrow", "graphql", "serde", "sqlx"]
-arrow = []
+default = ["graphql", "serde", "sqlx"]
 graphql = ["dep:async-graphql"]
 serde = ["dep:serde", "dep:serde_json"]
 sqlx = ["dep:sqlx"]

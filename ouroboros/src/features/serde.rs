@@ -338,7 +338,7 @@ pub mod de {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Alias, Func, Ptr, RecordDocs, RecordFieldDocs,
+        Alias, Func, Generic, Ptr, RecordDocs, RecordFieldDocs,
     };
 
     /// Suspended types are types that are not yet fully deserialized. While
@@ -440,6 +440,9 @@ pub mod de {
 
                     // Symbolic kinds
                     sym if sym.starts_with('$') => Ok(Type::from(Symbolic::new(&sym[1..]))),
+
+                    // Generic kinds
+                    gen if gen.starts_with('^') => Ok(Type::from(Generic::new(&gen[1..]))),
 
                     // Invalid kinds
                     k => Err(E::custom(format!("unexpected kind `{k}`"))),

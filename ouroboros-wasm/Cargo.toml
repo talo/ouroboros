@@ -4,6 +4,6 @@ edition = "2021"
 version.workspace = true
 
 [dependencies]
-ouroboros = { path = "../ouroboros" }
+ouroboros = { path = "../ouroboros", default-features = false }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }

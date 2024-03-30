@@ -140,7 +140,7 @@ pub unsafe extern "C" fn __ouroboros__free(ptr: *mut u8, size: usize) {
     ManuallyDrop::drop(&mut buf);
 }
 
-#[cfg(target = "wasm32-unknown-unknown")]
+#[cfg(target_arch = "wasm32")]
 extern "C" {
     pub fn __ouroboros__call(
         version: u32,
@@ -158,7 +158,7 @@ extern "C" {
     );
 }
 
-#[cfg(not(target = "wasm32-unknown-unknown"))]
+#[cfg(not(target_arch = "wasm32"))]
 #[no_mangle]
 pub extern "C" fn __ouroboros__call(
     _version: u32,
