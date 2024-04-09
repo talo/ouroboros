@@ -20,7 +20,7 @@ You'll notice that — other than the `"λ"` key — other keys are also allowed
 
 ## Lambdas
 
-Passing lambdas around as first-class citizens can get pretty hairy. In Ouroboros, the function type can only have one input type (`A`) and one output type (`B`). If you want a function that takes multiple input arguments then you need to express that `A` is a tuple. For example the function type for multiplication nmight look like `Func::new(<(i32, i32)>::t(), i32::t())`. 
+Passing lambdas around as first-class citizens can get pretty hairy. In Ouroboros, the function type can only have one input type (`A`) and one output type (`B`). If you want a function that takes multiple input arguments then you need to express that `A` is a tuple. For example the function type for multiplication nmight look like `Func::new(<(i32, i32)>::t(), i32::t())`.
 
 Lambda values that have tuples (with more than one element) as an input type can be curried by passing in only a subset of their required values. For example:
 
@@ -41,3 +41,8 @@ Notice that the name of the lambda value has not changed, although it has now ca
 ## Lambdas vs Functions
 
 Lambdas are the value, functions are the type. It is a little bit gross, but it is less gross than constantly being confused about what to do when importing them.
+
+## Building WASM
+
+To build WASM for the Ouroboros VM, you can run (from the root of the repository)
+`cargo build --package ouroboros-vm-prelude --target wasm32-unknown-unknown --no-default-features`
