@@ -201,7 +201,8 @@ where
                     walk_value(
                         v,
                         &field.t,
-                        val.get(&field.n).expect("value should have record field"),
+                        val.get(&field.n)
+                            .expect(&format!("value should have field at index: {}", field.n)),
                     )?;
                 }
                 Ok(())
@@ -213,7 +214,8 @@ where
                     walk_value(
                         v,
                         &field.t,
-                        val.get(i).expect("value should have record field"),
+                        val.get(i)
+                            .expect(&format!("value should have field at index: {}", i)),
                     )?;
                 }
                 Ok(())
