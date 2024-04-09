@@ -1,4 +1,4 @@
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::{
     Alias, Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, NamedField, Optional, Ptr,
@@ -198,11 +198,7 @@ where
                 let val = val.as_object().expect("value should be record");
                 v.visit_record_with_named_fields(rec, val)?;
                 for field in fields.iter() {
-                    walk_value(
-                        v,
-                        &field.t,
-                        val.get(&field.n).expect("value should have record field"),
-                    )?;
+                    walk_value(v, &field.t, val.get(&field.n).unwrap_or(&json!(null)))?;
                 }
                 Ok(())
             }
