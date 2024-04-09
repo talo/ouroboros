@@ -15,8 +15,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+      - name: Add wasm target
+        run: cargo --version
       - name: Build
         run: cargo build --verbose
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
       - name: Build wasm
         run: cargo build --package ouroboros-vm-prelude --target wasm32-unknown-unknown --no-default-features
       - name: Run tests
