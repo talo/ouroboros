@@ -174,7 +174,7 @@ impl Union {
                 } else if let Some(object) = value.as_object() {
                     self.variants
                         .iter()
-                        .map(|variant| {
+                        .filter_map(|variant| {
                             object.get(&variant.n).map(|object_fields| {
                                 variant
                                     .fields
@@ -190,7 +190,7 @@ impl Union {
                                     .unwrap_or(Ok(()))
                             })
                         })
-                        .collect::<Option<Result<_>>>()
+                        .next()
                         .unwrap_or(Err(Error::InvalidUnion {
                             expected: self.clone(),
                             e: Error::UnexpectedValue { got: value.clone() }.into(),
