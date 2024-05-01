@@ -121,7 +121,7 @@ impl Fallible {
                         e: e.into(),
                     })
             } else if let Some(err) = value.as_object().and_then(|object| object.get("Err")) {
-                self.ok
+                self.err
                     .is_compat(Some(err))
                     .map_err(|e| Error::InvalidFallible {
                         expected: self.clone(),
@@ -320,5 +320,37 @@ impl UnionVariant {
             n: n.into(),
             fields: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::TypeInfo as _;
+
+    #[test]
+    fn is_compat_fallible() {
+        let t = Result::<(u8, Vec<u8>), Option<String>>::t();
+
+        assert_eq!(
+            t.is_compat(Some(
+                &serde_json::to_value(Ok::<_, Option<String>>((10u8, vec![1u8, 2u8, 3u8])))
+                    .unwrap()
+            )),
+            Ok(())
+        );
+
+        assert_eq!(
+            t.is_compat(Some(
+                &serde_json::to_value(Err::<(u8, Vec<u8>), _>(Some("hello, world".to_string())))
+                    .unwrap()
+            )),
+            Ok(())
+        );
+        assert_eq!(
+            t.is_compat(Some(
+                &serde_json::to_value(Err::<(u8, Vec<u8>), _>(None::<String>)).unwrap()
+            )),
+            Ok(())
+        );
     }
 }

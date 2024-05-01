@@ -1089,6 +1089,23 @@ mod test {
     }
 
     #[test]
+    fn test_fallible() {
+        let t = Result::<(u8, Vec<u8>), Option<String>>::t();
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(
+            json,
+            r#"{"k":"fallible","t":[{"k":"tuple","t":["u8",{"k":"array","t":"u8"}]},{"k":"optional","t":"string"}]}"#
+        );
+        let u = serde_json::from_str::<Type>(&json).unwrap();
+        assert_eq!(t, u);
+        let u = serde_json::from_str::<Type>(
+            r#"{"t":[{"t":["u8",{"t":"u8","k":"array"}],"k":"tuple"},{"t":"string","k":"optional"}],"k":"fallible"}"#
+        )
+        .unwrap();
+        assert_eq!(t, u);
+    }
+
+    #[test]
     fn test_optional() {
         let t = Option::<(u8, Vec<u8>)>::t();
         let json = serde_json::to_string(&t).unwrap();

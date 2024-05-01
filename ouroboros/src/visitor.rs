@@ -1,8 +1,8 @@
 use serde_json::{Map, Value};
 
 use crate::{
-    Alias, Array, Enum, EnumVariant, Fallible, Fields, Func, Generic, Lambda, NamedField, Optional,
-    Ptr, Record, Symbolic, Tuple, Type, Union, UnionVariant, UnnamedField,
+    Alias, Array, Enum, EnumVariant, Fallible, Fields, Func, Generic, Lambda, Optional, Ptr,
+    Record, Symbolic, Tuple, Type, Union, UnionVariant,
 };
 
 pub trait ValueVisitor {
@@ -1013,5 +1013,187 @@ mod test {
         walk_value_mut(&mut visitor, &mut u8::t(), &mut num_value).unwrap();
         assert_eq!(visited, 1);
         assert_eq!(num_value.as_u64().unwrap(), 2);
+    }
+
+    #[test]
+    fn test_walk_fallible_type() {
+        struct FallibleTypeVisitor {
+            visited_array: bool,
+            visited_u8: bool,
+            visited_u16: bool,
+            visited_fallible: bool,
+            visited_optional: bool,
+        }
+
+        impl TypeVisitor for FallibleTypeVisitor {
+            type Error = ();
+
+            fn visit_u8(&mut self) -> Result<(), Self::Error> {
+                self.visited_u8 = true;
+                Ok(())
+            }
+
+            fn visit_u16(&mut self) -> Result<(), Self::Error> {
+                self.visited_u16 = true;
+                Ok(())
+            }
+
+            fn visit_array(&mut self, _arr: &Array) -> Result<(), Self::Error> {
+                self.visited_array = true;
+                Ok(())
+            }
+
+            fn visit_fallible(&mut self, _fall: &Fallible) -> Result<(), Self::Error> {
+                self.visited_fallible = true;
+                Ok(())
+            }
+
+            fn visit_optional(&mut self, _opt: &Optional) -> Result<(), Self::Error> {
+                self.visited_optional = true;
+                Ok(())
+            }
+        }
+
+        let mut visitor = FallibleTypeVisitor {
+            visited_fallible: false,
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_optional: false,
+        };
+        walk_type(&mut visitor, &Option::<Result<u8, Vec<u16>>>::t()).unwrap();
+
+        assert!(visitor.visited_u8);
+        assert!(visitor.visited_u16);
+        assert!(visitor.visited_array);
+        assert!(visitor.visited_fallible);
+        assert!(visitor.visited_optional);
+    }
+
+    #[test]
+    fn test_walk_fallible_value() {
+        struct FallibleValueVisitor {
+            visited_array: bool,
+            visited_u8: bool,
+            visited_u16: bool,
+            visited_fallible_ok: bool,
+            visited_fallible_err: bool,
+            visited_optional: bool,
+        }
+
+        impl ValueVisitor for FallibleValueVisitor {
+            type Error = ();
+
+            fn visit_u8(&mut self, _v: u8) -> Result<(), Self::Error> {
+                self.visited_u8 = true;
+                Ok(())
+            }
+
+            fn visit_u16(&mut self, _v: u16) -> Result<(), Self::Error> {
+                self.visited_u16 = true;
+                Ok(())
+            }
+
+            fn visit_array(&mut self, _arr: &Array, _v: &[Value]) -> Result<(), Self::Error> {
+                self.visited_array = true;
+                Ok(())
+            }
+
+            fn visit_fallible_ok(
+                &mut self,
+                _fall: &Fallible,
+                _v: &Value,
+            ) -> Result<(), Self::Error> {
+                self.visited_fallible_ok = true;
+                Ok(())
+            }
+
+            fn visit_fallible_err(
+                &mut self,
+                _fall: &Fallible,
+                _v: &Value,
+            ) -> Result<(), Self::Error> {
+                self.visited_fallible_err = true;
+                Ok(())
+            }
+
+            fn visit_optional(
+                &mut self,
+                _opt: &Optional,
+                _v: Option<&Value>,
+            ) -> Result<(), Self::Error> {
+                self.visited_optional = true;
+                Ok(())
+            }
+        }
+
+        let mut visitor = FallibleValueVisitor {
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_fallible_ok: false,
+            visited_fallible_err: false,
+            visited_optional: false,
+        };
+
+        walk_value(
+            &mut visitor,
+            &Option::<Result<u8, Vec<u16>>>::t(),
+            &serde_json::Value::Null,
+        )
+        .unwrap();
+
+        assert!(!visitor.visited_u8);
+        assert!(!visitor.visited_u16);
+        assert!(!visitor.visited_array);
+        assert!(!visitor.visited_fallible_ok);
+        assert!(!visitor.visited_fallible_err);
+        assert!(visitor.visited_optional);
+
+        let mut visitor = FallibleValueVisitor {
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_fallible_ok: false,
+            visited_fallible_err: false,
+            visited_optional: false,
+        };
+
+        walk_value(
+            &mut visitor,
+            &Option::<Result<u8, Vec<u16>>>::t(),
+            &serde_json::to_value(Some(Ok::<_, Vec<u16>>(1))).unwrap(),
+        )
+        .unwrap();
+
+        assert!(visitor.visited_u8);
+        assert!(!visitor.visited_u16);
+        assert!(!visitor.visited_array);
+        assert!(visitor.visited_fallible_ok);
+        assert!(!visitor.visited_fallible_err);
+        assert!(visitor.visited_optional);
+
+        let mut visitor = FallibleValueVisitor {
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_fallible_ok: false,
+            visited_fallible_err: false,
+            visited_optional: false,
+        };
+
+        walk_value(
+            &mut visitor,
+            &Option::<Result<u8, Vec<u16>>>::t(),
+            &serde_json::to_value(Some(Err::<u8, _>(vec![1, 2, 3]))).unwrap(),
+        )
+        .unwrap();
+
+        assert!(!visitor.visited_u8);
+        assert!(visitor.visited_u16);
+        assert!(visitor.visited_array);
+        assert!(!visitor.visited_fallible_ok);
+        assert!(visitor.visited_fallible_err);
+        assert!(visitor.visited_optional);
     }
 }
