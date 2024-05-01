@@ -218,7 +218,7 @@ where
                         v,
                         &field.t,
                         val.get(i)
-                            .expect(&format!("value should have field at index: {}", i)),
+                            .unwrap_or_else(|| panic!("value should have field at index: {}", i)),
                     )?;
                 }
                 Ok(())
