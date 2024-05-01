@@ -1,4 +1,6 @@
-use crate::{Alias, Array, Enum, Fields, Func, Optional, Ptr, Record, Symbolic, Tuple, Union};
+use crate::{
+    Alias, Array, Enum, Fallible, Fields, Func, Optional, Ptr, Record, Symbolic, Tuple, Union,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum Error {
@@ -67,6 +69,9 @@ pub enum Error {
 
     #[error("invalid `{expected}` enum, {e}")]
     InvalidEnum { expected: Enum, e: Box<Error> },
+
+    #[error("invalid `{expected}` fallible, {e}")]
+    InvalidFallible { expected: Fallible, e: Box<Error> },
 
     #[error("invalid `{expected}` optional, {e}")]
     InvalidOptional { expected: Optional, e: Box<Error> },

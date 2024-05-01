@@ -10,7 +10,8 @@ pub mod ser {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Alias, Func, Generic, NamedFields, Ptr, RecordDocs, RecordFieldDocs, UnnamedFields,
+        Alias, Fallible, Func, Generic, NamedFields, Ptr, RecordDocs, RecordFieldDocs,
+        UnnamedFields,
     };
 
     impl Serialize for Type {
@@ -44,6 +45,7 @@ pub mod ser {
 
                 // Sum types
                 Self::Enum(e) => e.serialize(serializer),
+                Self::Fallible(fall) => fall.serialize(serializer),
                 Self::Optional(optional) => optional.serialize(serializer),
                 Self::Union(union) => union.serialize(serializer),
 
@@ -185,6 +187,18 @@ pub mod ser {
                 }
                 None => serializer.serialize_str(&self.n),
             }
+        }
+    }
+
+    impl Serialize for Fallible {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let mut map = serializer.serialize_map(Some(2))?;
+            map.serialize_entry("k", "fallible")?;
+            map.serialize_entry("t", &[&self.ok, &self.err])?;
+            map.end()
         }
     }
 
@@ -338,7 +352,7 @@ pub mod de {
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
         type_info::Type,
-        Alias, Func, Generic, Ptr, RecordDocs, RecordFieldDocs,
+        Alias, Fallible, Func, Generic, Ptr, RecordDocs, RecordFieldDocs,
     };
 
     /// Suspended types are types that are not yet fully deserialized. While
@@ -567,6 +581,20 @@ pub mod de {
                                 // TODO: Support documentation
                                 // enm.doc = doc;
                                 Ok(Type::from(enm))
+                            }
+                            "fallible" => {
+                                let (t, e) = match t {
+                                    SuspendedType::Seq(seq) if seq.len() == 2 => (
+                                        <SuspendedType as Into<Result<Type, E>>>::into(
+                                            seq[0].clone(),
+                                        )?,
+                                        <SuspendedType as Into<Result<Type, E>>>::into(
+                                            seq[1].clone(),
+                                        )?,
+                                    ),
+                                    _ => return Err(de::Error::custom("expected fallible type")),
+                                };
+                                Ok(Type::from(Fallible::new(t, e)))
                             }
                             "optional" => {
                                 let inner_type =
