@@ -98,6 +98,58 @@ impl EnumVariant {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Fallible {
+    pub ok: Box<Type>,
+    pub err: Box<Type>,
+}
+
+impl Fallible {
+    pub fn new(ok: impl Into<Type>, err: impl Into<Type>) -> Self {
+        Self {
+            ok: Box::new(ok.into()),
+            err: Box::new(err.into()),
+        }
+    }
+
+    pub fn is_compat(&self, value: Option<&serde_json::Value>) -> Result<()> {
+        if let Some(value) = value {
+            if let Some(ok) = value.as_object().and_then(|object| object.get("Ok")) {
+                self.ok
+                    .is_compat(Some(ok))
+                    .map_err(|e| Error::InvalidFallible {
+                        expected: self.clone(),
+                        e: e.into(),
+                    })
+            } else if let Some(err) = value.as_object().and_then(|object| object.get("Err")) {
+                self.err
+                    .is_compat(Some(err))
+                    .map_err(|e| Error::InvalidFallible {
+                        expected: self.clone(),
+                        e: e.into(),
+                    })
+            } else {
+                Err(Error::InvalidFallible {
+                    expected: self.clone(),
+                    e: Error::UnexpectedValue { got: value.clone() }.into(),
+                })
+            }
+        } else {
+            Err(Error::InvalidFallible {
+                expected: self.clone(),
+                e: Error::UnexpectedNull.into(),
+            })
+        }
+    }
+}
+
+impl Display for Fallible {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.ok.fmt(f)?;
+        "!".fmt(f)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Optional {
     pub t: Box<Type>,
 }
@@ -268,5 +320,37 @@ impl UnionVariant {
             n: n.into(),
             fields: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::TypeInfo as _;
+
+    #[test]
+    fn is_compat_fallible() {
+        let t = Result::<(u8, Vec<u8>), Option<String>>::t();
+
+        assert_eq!(
+            t.is_compat(Some(
+                &serde_json::to_value(Ok::<_, Option<String>>((10u8, vec![1u8, 2u8, 3u8])))
+                    .unwrap()
+            )),
+            Ok(())
+        );
+
+        assert_eq!(
+            t.is_compat(Some(
+                &serde_json::to_value(Err::<(u8, Vec<u8>), _>(Some("hello, world".to_string())))
+                    .unwrap()
+            )),
+            Ok(())
+        );
+        assert_eq!(
+            t.is_compat(Some(
+                &serde_json::to_value(Err::<(u8, Vec<u8>), _>(None::<String>)).unwrap()
+            )),
+            Ok(())
+        );
     }
 }

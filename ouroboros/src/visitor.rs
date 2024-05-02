@@ -1,8 +1,8 @@
 use serde_json::{Map, Value};
 
 use crate::{
-    Alias, Array, Enum, EnumVariant, Fields, Func, Generic, Lambda, NamedField, Optional, Ptr,
-    Record, Symbolic, Tuple, Type, Union, UnionVariant, UnnamedField,
+    Alias, Array, Enum, EnumVariant, Fallible, Fields, Func, Generic, Lambda, Optional, Ptr,
+    Record, Symbolic, Tuple, Type, Union, UnionVariant,
 };
 
 pub trait ValueVisitor {
@@ -114,6 +114,14 @@ pub trait ValueVisitor {
         Ok(())
     }
 
+    fn visit_fallible_ok(&mut self, _fall: &Fallible, _val: &Value) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_fallible_err(&mut self, _fall: &Fallible, _val: &Value) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn visit_optional(&mut self, _opt: &Optional, _val: Option<&Value>) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -210,7 +218,7 @@ where
                         v,
                         &field.t,
                         val.get(i)
-                            .expect(&format!("value should have field at index: {}", i)),
+                            .unwrap_or_else(|| panic!("value should have field at index: {}", i)),
                     )?;
                 }
                 Ok(())
@@ -250,6 +258,20 @@ where
                 panic!("value should be enum variant (const value)")
             }
             _ => panic!("value should be enum variant"),
+        },
+        Type::Fallible(fall) => match val {
+            Value::Object(object) => {
+                if let Some(ok) = object.get("Ok") {
+                    v.visit_fallible_ok(fall, ok)?;
+                    walk_value(v, &fall.ok, ok)
+                } else if let Some(err) = object.get("Err") {
+                    v.visit_fallible_err(fall, err)?;
+                    walk_value(v, &fall.err, err)
+                } else {
+                    panic!("value should be fallible")
+                }
+            }
+            _ => panic!("value should be fallible"),
         },
         Type::Optional(opt) => {
             if val.is_null() {
@@ -404,6 +426,18 @@ pub trait MutableValueVisitor {
         _enm: &Enum,
         _var: &EnumVariant,
         _val: u8,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_fallible_ok(&mut self, _fall: &Fallible, _ok: &mut Value) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn visit_fallible_err(
+        &mut self,
+        _fall: &Fallible,
+        _err: &mut Value,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -567,6 +601,20 @@ where
             }
             _ => panic!("value should be enum variant"),
         },
+        Type::Fallible(fall) => match val {
+            Value::Object(object) => {
+                if let Some(ok) = object.get_mut("Ok") {
+                    v.visit_fallible_ok(fall, ok)?;
+                    walk_value_mut(v, fall.ok.as_mut(), ok)
+                } else if let Some(err) = object.get_mut("Err") {
+                    v.visit_fallible_err(fall, err)?;
+                    walk_value_mut(v, fall.err.as_mut(), err)
+                } else {
+                    panic!("value should be fallible")
+                }
+            }
+            _ => panic!("value should be fallible"),
+        },
         Type::Optional(opt) => {
             if val.is_null() {
                 // TODO: make enum mutable within visit_optional
@@ -715,6 +763,10 @@ pub trait TypeVisitor {
         Ok(())
     }
 
+    fn visit_fallible(&mut self, _fall: &Fallible) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn visit_optional(&mut self, _opt: &Optional) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -741,232 +793,6 @@ pub trait TypeVisitor {
 
     fn visit_alias(&mut self, _alias: &Alias) -> Result<(), Self::Error> {
         Ok(())
-    }
-}
-
-pub trait TypeMapper {
-    type Error;
-
-    fn visit_type(&mut self, ty: &Type) -> Result<Type, Self::Error> {
-        match ty {
-            Type::Unit => self.visit_unit(),
-            Type::Bool => self.visit_bool(),
-            Type::U8 => self.visit_u8(),
-            Type::U16 => self.visit_u16(),
-            Type::U32 => self.visit_u32(),
-            Type::U64 => self.visit_u64(),
-            Type::U128 => self.visit_u128(),
-            Type::I8 => self.visit_i8(),
-            Type::I16 => self.visit_i16(),
-            Type::I32 => self.visit_i32(),
-            Type::I64 => self.visit_i64(),
-            Type::I128 => self.visit_i128(),
-            Type::F32 => self.visit_f32(),
-            Type::F64 => self.visit_f64(),
-            Type::String => self.visit_string(),
-            Type::Array(arr) => self.visit_array(arr),
-            Type::Func(func) => self.visit_func(func),
-            Type::Record(rec) => match &rec.fields {
-                Fields::Named(_) => self.visit_record_with_named_fields(rec),
-                Fields::Unnamed(_) => self.visit_record_with_unnamed_fields(rec),
-            },
-            Type::Tuple(tup) => self.visit_tuple(tup),
-            Type::Enum(enm) => self.visit_enum(enm),
-            Type::Optional(opt) => self.visit_optional(opt),
-            Type::Union(union) => self.visit_union(union),
-            Type::Ptr(p) => self.visit_ptr(p),
-            Type::Symbolic(sym) => self.visit_symbolic(sym),
-            Type::Generic(gen) => self.visit_generic(gen),
-            Type::Alias(alias) => self.visit_alias(alias),
-        }
-    }
-
-    fn visit_unit(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::Unit)
-    }
-
-    fn visit_bool(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::Bool)
-    }
-
-    fn visit_u8(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::U8)
-    }
-
-    fn visit_u16(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::U16)
-    }
-
-    fn visit_u32(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::U32)
-    }
-
-    fn visit_u64(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::U64)
-    }
-
-    fn visit_u128(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::U128)
-    }
-
-    fn visit_i8(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::I8)
-    }
-
-    fn visit_i16(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::I16)
-    }
-
-    fn visit_i32(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::I32)
-    }
-
-    fn visit_i64(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::I64)
-    }
-
-    fn visit_i128(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::I128)
-    }
-
-    fn visit_f32(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::F32)
-    }
-
-    fn visit_f64(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::F64)
-    }
-
-    fn visit_string(&mut self) -> Result<Type, Self::Error> {
-        Ok(Type::String)
-    }
-
-    fn visit_array(&mut self, arr: &Array) -> Result<Type, Self::Error> {
-        Ok(Type::from(Array::new(self.visit_type(arr.t.as_ref())?)))
-    }
-
-    fn visit_func(&mut self, func: &Func) -> Result<Type, Self::Error> {
-        Ok(Type::from(Func::new(
-            self.visit_type(func.a.as_ref())?,
-            self.visit_type(func.b.as_ref())?,
-        )))
-    }
-
-    fn visit_record_with_named_fields(&mut self, rec: &Record) -> Result<Type, Self::Error> {
-        let fields = rec
-            .fields
-            .as_named()
-            .unwrap()
-            .iter()
-            .map(|field| Ok(NamedField::new(field.n.clone(), self.visit_type(&field.t)?)))
-            .collect::<Result<Vec<NamedField>, _>>()?;
-        if let Some(doc) = &rec.doc {
-            Ok(Type::from(Record::with_doc(
-                doc.clone(),
-                rec.n.clone(),
-                fields,
-            )))
-        } else {
-            Ok(Type::from(Record::new(rec.n.clone(), fields)))
-        }
-    }
-
-    fn visit_record_with_unnamed_fields(&mut self, rec: &Record) -> Result<Type, Self::Error> {
-        let fields = rec
-            .fields
-            .as_unnamed()
-            .unwrap()
-            .iter()
-            .map(|field| self.visit_type(&field.t))
-            .collect::<Result<Vec<Type>, _>>()?;
-        if let Some(doc) = &rec.doc {
-            Ok(Type::from(Record::with_doc(
-                doc.clone(),
-                rec.n.clone(),
-                fields,
-            )))
-        } else {
-            Ok(Type::from(Record::new(rec.n.clone(), fields)))
-        }
-    }
-
-    fn visit_tuple(&mut self, tup: &Tuple) -> Result<Type, Self::Error> {
-        let fields = tup
-            .fields
-            .iter()
-            .map(|field| self.visit_type(&field.t))
-            .collect::<Result<Vec<Type>, _>>()?;
-        Ok(Type::from(Tuple::new(fields)))
-    }
-
-    fn visit_enum(&mut self, enm: &Enum) -> Result<Type, Self::Error> {
-        Ok(Type::from(enm.clone()))
-    }
-
-    fn visit_optional(&mut self, opt: &Optional) -> Result<Type, Self::Error> {
-        Ok(Type::from(Optional::new(self.visit_type(opt.t.as_ref())?)))
-    }
-
-    fn visit_union(&mut self, union: &Union) -> Result<Type, Self::Error> {
-        let variants = union
-            .variants
-            .iter()
-            .map(|variant| {
-                if let Some(fields) = &variant.fields {
-                    Ok(UnionVariant::with_fields(
-                        variant.n.clone(),
-                        match fields {
-                            Fields::Named(fields) => Fields::Named(
-                                fields
-                                    .iter()
-                                    .map(|field| {
-                                        Ok(NamedField::new(
-                                            field.n.clone(),
-                                            self.visit_type(&field.t)?,
-                                        ))
-                                    })
-                                    .collect::<Result<Vec<NamedField>, _>>()?
-                                    .into(),
-                            ),
-                            Fields::Unnamed(fields) => Fields::Unnamed(
-                                fields
-                                    .iter()
-                                    .map(|field| Ok(UnnamedField::new(self.visit_type(&field.t)?)))
-                                    .collect::<Result<Vec<UnnamedField>, _>>()?
-                                    .into(),
-                            ),
-                        },
-                    ))
-                } else {
-                    Ok(UnionVariant::new(variant.n.clone()))
-                }
-            })
-            .collect::<Result<Vec<UnionVariant>, _>>()?;
-        if let Some(doc) = &union.doc {
-            Ok(Type::from(Union::with_doc(
-                doc.clone(),
-                union.n.clone(),
-                variants,
-            )))
-        } else {
-            Ok(Type::from(Union::new(union.n.clone(), variants)))
-        }
-    }
-
-    fn visit_ptr(&mut self, p: &Ptr) -> Result<Type, Self::Error> {
-        Ok(Type::from(Ptr::new(self.visit_type(p.t.as_ref())?)))
-    }
-
-    fn visit_symbolic(&mut self, sym: &Symbolic) -> Result<Type, Self::Error> {
-        Ok(Type::from(sym.clone()))
-    }
-
-    fn visit_generic(&mut self, gen: &Generic) -> Result<Type, Self::Error> {
-        Ok(Type::from(gen.clone()))
-    }
-
-    fn visit_alias(&mut self, alias: &Alias) -> Result<Type, Self::Error> {
-        Ok(Type::from(alias.clone()))
     }
 }
 
@@ -1031,6 +857,12 @@ where
             }
             Ok(())
         }
+        Type::Fallible(fall) => {
+            v.visit_fallible(fall)?;
+            walk_type(v, &fall.ok)?;
+            walk_type(v, &fall.err)?;
+            Ok(())
+        }
         Type::Optional(opt) => {
             v.visit_optional(opt)?;
             walk_type(v, &opt.t)
@@ -1038,7 +870,21 @@ where
         Type::Union(union) => {
             for variant in &union.variants {
                 match &variant.fields {
-                    Some(_) => v.visit_union_variant_fields(variant)?,
+                    Some(fields) => {
+                        v.visit_union_variant_fields(variant)?;
+                        match fields {
+                            Fields::Named(fields) => {
+                                for field in fields.iter() {
+                                    walk_type(v, &field.t)?;
+                                }
+                            }
+                            Fields::Unnamed(fields) => {
+                                for field in fields.iter() {
+                                    walk_type(v, &field.t)?;
+                                }
+                            }
+                        }
+                    }
                     None => v.visit_union_variant_string(variant)?,
                 };
             }
@@ -1167,5 +1013,187 @@ mod test {
         walk_value_mut(&mut visitor, &mut u8::t(), &mut num_value).unwrap();
         assert_eq!(visited, 1);
         assert_eq!(num_value.as_u64().unwrap(), 2);
+    }
+
+    #[test]
+    fn test_walk_fallible_type() {
+        struct FallibleTypeVisitor {
+            visited_array: bool,
+            visited_u8: bool,
+            visited_u16: bool,
+            visited_fallible: bool,
+            visited_optional: bool,
+        }
+
+        impl TypeVisitor for FallibleTypeVisitor {
+            type Error = ();
+
+            fn visit_u8(&mut self) -> Result<(), Self::Error> {
+                self.visited_u8 = true;
+                Ok(())
+            }
+
+            fn visit_u16(&mut self) -> Result<(), Self::Error> {
+                self.visited_u16 = true;
+                Ok(())
+            }
+
+            fn visit_array(&mut self, _arr: &Array) -> Result<(), Self::Error> {
+                self.visited_array = true;
+                Ok(())
+            }
+
+            fn visit_fallible(&mut self, _fall: &Fallible) -> Result<(), Self::Error> {
+                self.visited_fallible = true;
+                Ok(())
+            }
+
+            fn visit_optional(&mut self, _opt: &Optional) -> Result<(), Self::Error> {
+                self.visited_optional = true;
+                Ok(())
+            }
+        }
+
+        let mut visitor = FallibleTypeVisitor {
+            visited_fallible: false,
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_optional: false,
+        };
+        walk_type(&mut visitor, &Option::<Result<u8, Vec<u16>>>::t()).unwrap();
+
+        assert!(visitor.visited_u8);
+        assert!(visitor.visited_u16);
+        assert!(visitor.visited_array);
+        assert!(visitor.visited_fallible);
+        assert!(visitor.visited_optional);
+    }
+
+    #[test]
+    fn test_walk_fallible_value() {
+        struct FallibleValueVisitor {
+            visited_array: bool,
+            visited_u8: bool,
+            visited_u16: bool,
+            visited_fallible_ok: bool,
+            visited_fallible_err: bool,
+            visited_optional: bool,
+        }
+
+        impl ValueVisitor for FallibleValueVisitor {
+            type Error = ();
+
+            fn visit_u8(&mut self, _v: u8) -> Result<(), Self::Error> {
+                self.visited_u8 = true;
+                Ok(())
+            }
+
+            fn visit_u16(&mut self, _v: u16) -> Result<(), Self::Error> {
+                self.visited_u16 = true;
+                Ok(())
+            }
+
+            fn visit_array(&mut self, _arr: &Array, _v: &[Value]) -> Result<(), Self::Error> {
+                self.visited_array = true;
+                Ok(())
+            }
+
+            fn visit_fallible_ok(
+                &mut self,
+                _fall: &Fallible,
+                _v: &Value,
+            ) -> Result<(), Self::Error> {
+                self.visited_fallible_ok = true;
+                Ok(())
+            }
+
+            fn visit_fallible_err(
+                &mut self,
+                _fall: &Fallible,
+                _v: &Value,
+            ) -> Result<(), Self::Error> {
+                self.visited_fallible_err = true;
+                Ok(())
+            }
+
+            fn visit_optional(
+                &mut self,
+                _opt: &Optional,
+                _v: Option<&Value>,
+            ) -> Result<(), Self::Error> {
+                self.visited_optional = true;
+                Ok(())
+            }
+        }
+
+        let mut visitor = FallibleValueVisitor {
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_fallible_ok: false,
+            visited_fallible_err: false,
+            visited_optional: false,
+        };
+
+        walk_value(
+            &mut visitor,
+            &Option::<Result<u8, Vec<u16>>>::t(),
+            &serde_json::Value::Null,
+        )
+        .unwrap();
+
+        assert!(!visitor.visited_u8);
+        assert!(!visitor.visited_u16);
+        assert!(!visitor.visited_array);
+        assert!(!visitor.visited_fallible_ok);
+        assert!(!visitor.visited_fallible_err);
+        assert!(visitor.visited_optional);
+
+        let mut visitor = FallibleValueVisitor {
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_fallible_ok: false,
+            visited_fallible_err: false,
+            visited_optional: false,
+        };
+
+        walk_value(
+            &mut visitor,
+            &Option::<Result<u8, Vec<u16>>>::t(),
+            &serde_json::to_value(Some(Ok::<_, Vec<u16>>(1))).unwrap(),
+        )
+        .unwrap();
+
+        assert!(visitor.visited_u8);
+        assert!(!visitor.visited_u16);
+        assert!(!visitor.visited_array);
+        assert!(visitor.visited_fallible_ok);
+        assert!(!visitor.visited_fallible_err);
+        assert!(visitor.visited_optional);
+
+        let mut visitor = FallibleValueVisitor {
+            visited_u8: false,
+            visited_u16: false,
+            visited_array: false,
+            visited_fallible_ok: false,
+            visited_fallible_err: false,
+            visited_optional: false,
+        };
+
+        walk_value(
+            &mut visitor,
+            &Option::<Result<u8, Vec<u16>>>::t(),
+            &serde_json::to_value(Some(Err::<u8, _>(vec![1, 2, 3]))).unwrap(),
+        )
+        .unwrap();
+
+        assert!(!visitor.visited_u8);
+        assert!(visitor.visited_u16);
+        assert!(visitor.visited_array);
+        assert!(!visitor.visited_fallible_ok);
+        assert!(visitor.visited_fallible_err);
+        assert!(visitor.visited_optional);
     }
 }

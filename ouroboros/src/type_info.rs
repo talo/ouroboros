@@ -7,7 +7,7 @@ use crate::{
     signed_int_range_check,
     sum::{Enum, Optional, Union},
     symbolic::Symbolic,
-    unsigned_int_range_check, Alias, Error, Func, Generic, Ptr, Result,
+    unsigned_int_range_check, Alias, Error, Fallible, Func, Generic, Ptr, Result,
 };
 
 pub trait TypeInfo {
@@ -61,6 +61,7 @@ pub enum Type {
 
     // Sum types
     Enum(Enum),
+    Fallible(Fallible),
     Optional(Optional),
     Union(Union),
 
@@ -94,6 +95,7 @@ impl Type {
             Self::Record(rec) => &rec.n,
             Self::Tuple(_) => "tuple",
             Self::Enum(enm) => &enm.n,
+            Self::Fallible(_) => "fallible",
             Self::Optional(_) => "optional",
             Self::Union(union) => &union.n,
             Self::Ptr(_) => "@",
@@ -174,6 +176,8 @@ impl Type {
             // constant-values.
             Self::Enum(enm) => enm.is_compat(value),
 
+            Self::Fallible(fall) => fall.is_compat(value),
+
             // Optional values must be present and must be null or compatible
             // with the inner type of the optional.
             Self::Optional(opt) => opt.is_compat(value),
@@ -223,6 +227,12 @@ impl From<Tuple> for Type {
 impl From<Enum> for Type {
     fn from(t: Enum) -> Self {
         Self::Enum(t)
+    }
+}
+
+impl From<Fallible> for Type {
+    fn from(t: Fallible) -> Self {
+        Self::Fallible(t)
     }
 }
 
@@ -479,6 +489,19 @@ impl<T: TypeInfo> TypeInfo for [T] {
     }
 }
 
+impl<T: TypeInfo, E: TypeInfo> TypeInfo for std::result::Result<T, E> {
+    fn tname() -> TypeName {
+        TypeName {
+            n: "fallible",
+            g: vec![T::tname(), E::tname()],
+        }
+    }
+
+    fn t() -> Type {
+        Type::Fallible(Fallible::new(T::t(), E::t()))
+    }
+}
+
 impl<T: TypeInfo> TypeInfo for Option<T> {
     fn tname() -> TypeName {
         TypeName {
@@ -535,6 +558,7 @@ impl Display for Type {
             Self::Record(rec) => rec.fmt(f),
             Self::Tuple(tup) => tup.fmt(f),
             Self::Enum(enm) => enm.fmt(f),
+            Self::Fallible(fall) => fall.fmt(f),
             Self::Optional(opt) => opt.fmt(f),
             Self::Union(union) => union.fmt(f),
             Self::Ptr(p) => p.fmt(f),
