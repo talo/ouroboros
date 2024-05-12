@@ -461,8 +461,7 @@ pub trait MutableValueVisitor {
 
     fn visit_union_variant_fields(
         &mut self,
-        _union: &Union,
-        _var: &UnionVariant,
+        _var: &mut UnionVariant,
         _val: &mut Map<String, Value>,
     ) -> Result<(), Self::Error> {
         Ok(())
@@ -635,7 +634,7 @@ where
                 panic!("value should be union variant (string)")
             }
             Value::Object(object) => {
-                for variant in &union.variants {
+                for variant in &mut union.variants {
                     if object
                         .get(&variant.n)
                         .and_then(|object_fields| {
@@ -646,7 +645,39 @@ where
                         .unwrap_or(false)
                     {
                         // TODO: make union and variant optional within visit_union_variant_string
-                        return v.visit_union_variant_fields(union, variant, object);
+                        v.visit_union_variant_fields(variant, object)?;
+
+                        if let Some(fields) = &mut variant.fields {
+                            match fields {
+                                Fields::Named(fields) => {
+                                    for field in fields.iter_mut() {
+                                        walk_value_mut(
+                                            v,
+                                            &mut field.t,
+                                            object
+                                                .get_mut(&variant.n)
+                                                .and_then(|object_fields| {
+                                                    object_fields.get_mut(&field.n)
+                                                })
+                                                .unwrap_or(&mut Value::Null),
+                                        )?;
+                                    }
+                                }
+                                Fields::Unnamed(fields) => {
+                                    for (i, field) in fields.iter_mut().enumerate() {
+                                        walk_value_mut(
+                                            v,
+                                            &mut field.t,
+                                            object
+                                                .get_mut(&variant.n)
+                                                .and_then(|object_fields| object_fields.get_mut(i))
+                                                .unwrap_or(&mut Value::Null),
+                                        )?;
+                                    }
+                                }
+                            };
+                        }
+                        return Ok(());
                     }
                 }
                 panic!("value should be union variant (fields)")
@@ -963,6 +994,8 @@ macro_rules! float_range_check {
 #[cfg(test)]
 
 mod test {
+    use serde::Serialize;
+
     use super::*;
     use crate::TypeInfo;
 
@@ -1195,5 +1228,68 @@ mod test {
         assert!(!visitor.visited_fallible_ok);
         assert!(visitor.visited_fallible_err);
         assert!(visitor.visited_optional);
+    }
+
+    #[test]
+    fn test_walk_mut_union() {
+        #[derive(Serialize)]
+        struct Baz {
+            x: u8,
+            y: String,
+            z: Vec<u8>,
+        }
+
+        #[derive(Serialize)]
+        enum Foo {
+            Bar(u8, Baz),
+        }
+
+        struct Visitor {
+            visited_u8: usize,
+        }
+
+        impl MutableValueVisitor for Visitor {
+            type Error = ();
+
+            fn visit_u8(&mut self, _v: &mut serde_json::Value) -> Result<(), Self::Error> {
+                self.visited_u8 += 1;
+                Ok(())
+            }
+        }
+
+        let foo = Foo::Bar(
+            1,
+            Baz {
+                x: 2,
+                y: "y".to_string(),
+                z: vec![3, 4, 5],
+            },
+        );
+        let mut val = serde_json::to_value(&foo).unwrap();
+
+        let mut visitor = Visitor { visited_u8: 0 };
+        let _ = walk_value_mut(
+            &mut visitor,
+            &mut Type::Union(Union::new(
+                "Foo",
+                [UnionVariant::with_fields(
+                    "Bar",
+                    Fields::unnamed([
+                        u8::t(),
+                        Type::Record(Record::new(
+                            "Baz",
+                            Fields::named([
+                                ("x", u8::t()),
+                                ("y", String::t()),
+                                ("z", Vec::<u8>::t()),
+                            ]),
+                        )),
+                    ]),
+                )],
+            )),
+            &mut val,
+        );
+
+        assert_eq!(visitor.visited_u8, 5);
     }
 }
