@@ -231,13 +231,24 @@ impl Union {
                                 variant
                                     .fields
                                     .as_ref()
-                                    .map(|variant_fields| {
-                                        variant_fields.is_compat(Some(object_fields)).map_err(|e| {
-                                            Error::InvalidUnion {
+                                    .map(|variant_fields| match variant_fields {
+                                        Fields::Unnamed(variant_unnamed_fields)
+                                            if variant_unnamed_fields.len() == 1 =>
+                                        {
+                                            variant_unnamed_fields.fields[0]
+                                                .t
+                                                .is_compat(Some(object_fields))
+                                                .map_err(|e| Error::InvalidUnion {
+                                                    expected: self.clone(),
+                                                    e: e.into(),
+                                                })
+                                        }
+                                        _ => variant_fields.is_compat(Some(object_fields)).map_err(
+                                            |e| Error::InvalidUnion {
                                                 expected: self.clone(),
                                                 e: e.into(),
-                                            }
-                                        })
+                                            },
+                                        ),
                                     })
                                     .unwrap_or(Ok(()))
                             })
