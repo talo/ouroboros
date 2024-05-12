@@ -907,7 +907,7 @@ mod test {
         product::Record,
         sum::{Enum, EnumVariant, Union, UnionVariant},
         type_info::{Type, TypeInfo},
-        Lambda, Ptr,
+        Fields, Lambda, Ptr,
     };
 
     #[test]
@@ -1127,7 +1127,7 @@ mod test {
         let t = Type::Union(Union::new(
             "Foo",
             [
-                UnionVariant::with_fields("X", [Type::U8, Type::U8]),
+                UnionVariant::with_fields("X", [Type::U8, Vec::<u8>::t()]),
                 UnionVariant::with_fields("Y", [("bar", Type::U8), ("baz", Type::U8)]),
                 UnionVariant::new("Z"),
             ],
@@ -1135,15 +1135,64 @@ mod test {
         let json = serde_json::to_string(&t).unwrap();
         assert_eq!(
             json,
-            r#"{"k":"union","t":[{"X":["u8","u8"]},{"Y":{"bar":"u8","baz":"u8"}},"Z"],"n":"Foo"}"#
+            r#"{"k":"union","t":[{"X":["u8",{"k":"array","t":"u8"}]},{"Y":{"bar":"u8","baz":"u8"}},"Z"],"n":"Foo"}"#
         );
         let u = serde_json::from_str::<Type>(&json).unwrap();
         assert_eq!(t, u);
         let u = serde_json::from_str::<Type>(
-            r#"{"n":"Foo","k":"union","t":["Z",{"Y":{"bar":"u8","baz":"u8"}},{"X":["u8","u8"]}]}"#,
+            r#"{"n":"Foo","k":"union","t":["Z",{"Y":{"bar":"u8","baz":"u8"}},{"X":["u8",{"t":"u8","k":"array"}]}]}"#,
         )
         .unwrap();
         assert_eq!(t, u);
+
+        let v = serde_json::from_str::<serde_json::Value>(r#"{"X":[1,[2,3]]}"#).unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
+
+        let v = serde_json::from_str::<serde_json::Value>(r#"{"Y":{"bar":1,"baz":2}}"#).unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
+
+        let v = serde_json::from_str::<serde_json::Value>(r#""Z""#).unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
+
+        let t = Type::Union(Union::new(
+            "Foo",
+            [
+                UnionVariant::with_fields(
+                    "W",
+                    [Type::Record(Record::new(
+                        "Object",
+                        Fields::named(vec![
+                            ("path", Type::String),
+                            ("format", Type::String),
+                            ("size", Type::U32),
+                        ]),
+                    ))],
+                ),
+                UnionVariant::with_fields("X", [Vec::<u8>::t()]),
+                UnionVariant::with_fields("Y", [("bar", Type::U8), ("baz", Type::U8)]),
+                UnionVariant::new("Z"),
+            ],
+        ));
+        let json = serde_json::to_string(&t).unwrap();
+        assert_eq!(
+            json,
+            r#"{"k":"union","t":[{"W":[{"k":"record","t":{"path":"string","format":"string","size":"u32"},"n":"Object"}]},{"X":[{"k":"array","t":"u8"}]},{"Y":{"bar":"u8","baz":"u8"}},"Z"],"n":"Foo"}"#
+        );
+
+        let v = serde_json::from_str::<serde_json::Value>(
+            r#"{"W":{"path":"~/hello","format":"bin","size":1234}}"#,
+        )
+        .unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
+
+        let v = serde_json::from_str::<serde_json::Value>(r#"{"X":[1,2,3,4,5]}"#).unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
+
+        let v = serde_json::from_str::<serde_json::Value>(r#"{"Y":{"bar":1,"baz":2}}"#).unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
+
+        let v = serde_json::from_str::<serde_json::Value>(r#""Z""#).unwrap();
+        assert!(t.is_compat(Some(&v)).is_ok());
     }
 
     #[test]
