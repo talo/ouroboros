@@ -301,7 +301,40 @@ where
                         })
                         .unwrap_or(false)
                     {
-                        return v.visit_union_variant_fields(union, variant, object);
+                        v.visit_union_variant_fields(union, variant, object)?;
+
+                        if let Some(fields) = &variant.fields {
+                            match fields {
+                                Fields::Named(fields) => {
+                                    for field in fields.iter() {
+                                        walk_value(
+                                            v,
+                                            &field.t,
+                                            object
+                                                .get(&variant.n)
+                                                .and_then(|object_fields| {
+                                                    object_fields.get(&field.n)
+                                                })
+                                                .unwrap_or(&mut Value::Null),
+                                        )?;
+                                    }
+                                }
+                                Fields::Unnamed(fields) => {
+                                    for (i, field) in fields.iter().enumerate() {
+                                        walk_value(
+                                            v,
+                                            &field.t,
+                                            object
+                                                .get(&variant.n)
+                                                .and_then(|object_fields| object_fields.get(i))
+                                                .unwrap_or(&mut Value::Null),
+                                        )?;
+                                    }
+                                }
+                            };
+                        }
+
+                        return Ok(());
                     }
                 }
                 panic!("value should be union variant (fields)")
@@ -1249,6 +1282,15 @@ mod test {
             visited_u8: usize,
         }
 
+        impl ValueVisitor for Visitor {
+            type Error = ();
+
+            fn visit_u8(&mut self, _v: u8) -> Result<(), Self::Error> {
+                self.visited_u8 += 1;
+                Ok(())
+            }
+        }
+
         impl MutableValueVisitor for Visitor {
             type Error = ();
 
@@ -1290,7 +1332,30 @@ mod test {
             )),
             &mut val,
         );
+        assert_eq!(visitor.visited_u8, 5);
 
+        let mut visitor = Visitor { visited_u8: 0 };
+        let _ = walk_value(
+            &mut visitor,
+            &Type::Union(Union::new(
+                "Foo",
+                [UnionVariant::with_fields(
+                    "Bar",
+                    Fields::unnamed([
+                        u8::t(),
+                        Type::Record(Record::new(
+                            "Baz",
+                            Fields::named([
+                                ("x", u8::t()),
+                                ("y", String::t()),
+                                ("z", Vec::<u8>::t()),
+                            ]),
+                        )),
+                    ]),
+                )],
+            )),
+            &val,
+        );
         assert_eq!(visitor.visited_u8, 5);
     }
 }
