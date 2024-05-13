@@ -295,12 +295,24 @@ where
                     if object
                         .get(&variant.n)
                         .and_then(|object_fields| {
-                            variant.fields.as_ref().map(|variant_fields| {
-                                variant_fields.is_compat(Some(object_fields)).is_ok()
-                            })
+                            variant
+                                .fields
+                                .as_ref()
+                                .map(|variant_fields| match variant_fields {
+                                    Fields::Unnamed(variant_unnamed_fields)
+                                        if variant_unnamed_fields.len() == 1 =>
+                                    {
+                                        variant_unnamed_fields.fields[0]
+                                            .t
+                                            .is_compat(Some(object_fields))
+                                            .is_ok()
+                                    }
+                                    _ => variant_fields.is_compat(Some(object_fields)).is_ok(),
+                                })
                         })
                         .unwrap_or(false)
                     {
+                        // TODO: make union and variant optional within visit_union_variant_string
                         v.visit_union_variant_fields(union, variant, object)?;
 
                         if let Some(fields) = &variant.fields {
@@ -318,6 +330,13 @@ where
                                                 .unwrap_or(&mut Value::Null),
                                         )?;
                                     }
+                                }
+                                Fields::Unnamed(fields) if fields.len() == 1 => {
+                                    walk_value(
+                                        v,
+                                        &fields.fields[0].t,
+                                        object.get(&variant.n).unwrap(),
+                                    )?;
                                 }
                                 Fields::Unnamed(fields) => {
                                     for (i, field) in fields.iter().enumerate() {
@@ -672,9 +691,20 @@ where
                     if object
                         .get(&variant.n)
                         .and_then(|object_fields| {
-                            variant.fields.as_ref().map(|variant_fields| {
-                                variant_fields.is_compat(Some(object_fields)).is_ok()
-                            })
+                            variant
+                                .fields
+                                .as_ref()
+                                .map(|variant_fields| match variant_fields {
+                                    Fields::Unnamed(variant_unnamed_fields)
+                                        if variant_unnamed_fields.len() == 1 =>
+                                    {
+                                        variant_unnamed_fields.fields[0]
+                                            .t
+                                            .is_compat(Some(object_fields))
+                                            .is_ok()
+                                    }
+                                    _ => variant_fields.is_compat(Some(object_fields)).is_ok(),
+                                })
                         })
                         .unwrap_or(false)
                     {
@@ -697,6 +727,13 @@ where
                                         )?;
                                     }
                                 }
+                                Fields::Unnamed(fields) if fields.len() == 1 => {
+                                    walk_value_mut(
+                                        v,
+                                        &mut fields.fields[0].t,
+                                        object.get_mut(&variant.n).unwrap(),
+                                    )?;
+                                }
                                 Fields::Unnamed(fields) => {
                                     for (i, field) in fields.iter_mut().enumerate() {
                                         walk_value_mut(
@@ -711,6 +748,7 @@ where
                                 }
                             };
                         }
+
                         return Ok(());
                     }
                 }
@@ -1265,7 +1303,7 @@ mod test {
     }
 
     #[test]
-    fn test_walk_mut_union() {
+    fn test_walk_union() {
         #[derive(Serialize)]
         struct Baz {
             x: u8,
@@ -1275,7 +1313,7 @@ mod test {
 
         #[derive(Serialize)]
         enum Foo {
-            Bar(u8, Baz),
+            Bar(Baz),
         }
 
         struct Visitor {
@@ -1300,14 +1338,11 @@ mod test {
             }
         }
 
-        let foo = Foo::Bar(
-            1,
-            Baz {
-                x: 2,
-                y: "y".to_string(),
-                z: vec![3, 4, 5],
-            },
-        );
+        let foo = Foo::Bar(Baz {
+            x: 2,
+            y: "y".to_string(),
+            z: vec![3, 4, 5],
+        });
         let mut val = serde_json::to_value(&foo).unwrap();
 
         let mut visitor = Visitor { visited_u8: 0 };
@@ -1317,22 +1352,15 @@ mod test {
                 "Foo",
                 [UnionVariant::with_fields(
                     "Bar",
-                    Fields::unnamed([
-                        u8::t(),
-                        Type::Record(Record::new(
-                            "Baz",
-                            Fields::named([
-                                ("x", u8::t()),
-                                ("y", String::t()),
-                                ("z", Vec::<u8>::t()),
-                            ]),
-                        )),
-                    ]),
+                    Fields::unnamed([Type::Record(Record::new(
+                        "Baz",
+                        Fields::named([("x", u8::t()), ("y", String::t()), ("z", Vec::<u8>::t())]),
+                    ))]),
                 )],
             )),
             &mut val,
         );
-        assert_eq!(visitor.visited_u8, 5);
+        assert_eq!(visitor.visited_u8, 4);
 
         let mut visitor = Visitor { visited_u8: 0 };
         let _ = walk_value(
@@ -1341,21 +1369,14 @@ mod test {
                 "Foo",
                 [UnionVariant::with_fields(
                     "Bar",
-                    Fields::unnamed([
-                        u8::t(),
-                        Type::Record(Record::new(
-                            "Baz",
-                            Fields::named([
-                                ("x", u8::t()),
-                                ("y", String::t()),
-                                ("z", Vec::<u8>::t()),
-                            ]),
-                        )),
-                    ]),
+                    Fields::unnamed([Type::Record(Record::new(
+                        "Baz",
+                        Fields::named([("x", u8::t()), ("y", String::t()), ("z", Vec::<u8>::t())]),
+                    ))]),
                 )],
             )),
             &val,
         );
-        assert_eq!(visitor.visited_u8, 5);
+        assert_eq!(visitor.visited_u8, 4);
     }
 }
