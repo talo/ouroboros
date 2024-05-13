@@ -513,7 +513,6 @@ pub trait MutableValueVisitor {
 
     fn visit_union_variant_fields(
         &mut self,
-        // _union: &mut Union,
         _var: &mut UnionVariant,
         _val: &mut Map<String, Value>,
     ) -> Result<(), Self::Error> {
