@@ -279,7 +279,7 @@ impl TypedefVisitor {
             Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
-            Type::Alias(alias) => Self::visit_type(&alias.t), // FIXME: Should we transpile the alias?
+            Type::Alias(alias) => Self::visit_alias_with_prefix(&alias, prefix), // FIXME: Should we transpile the alias?
         }
     }
 
@@ -717,6 +717,10 @@ mod test {
         let t = Alias::new("Foo", Type::U32);
 
         assert_eq!(TypedefVisitor::visit_alias(&t), r#"using Foo = uint32_t;"#);
+        assert_eq!(
+            TypedefVisitor::visit_type(&Type::from(t)),
+            r#"using Foo = uint32_t;"#
+        );
 
         let t = Record::new(
             "Foo",
