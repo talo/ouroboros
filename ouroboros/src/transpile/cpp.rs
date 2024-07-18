@@ -16,7 +16,7 @@ impl TypenameVisitor {
 
     pub fn visit_type_with_prefix(t: &Type, prefix: &str) -> String {
         match t {
-            Type::Unit => todo!(),
+            Type::Unit => unimplemented!(),
             Type::Bool => Self::visit_bool_with_prefix(prefix),
             Type::I8 => Self::visit_i8_with_prefix(prefix),
             Type::I16 => Self::visit_i16_with_prefix(prefix),
