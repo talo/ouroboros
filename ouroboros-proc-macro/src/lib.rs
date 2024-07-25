@@ -90,8 +90,25 @@ pub fn derive_type_info(input: TokenStream) -> TokenStream {
                     let mut variant_name = format!("{}", variant.ident.clone());
                     rename_variant(&mut variant_name, variant);
 
-                    quote! {
-                        ::ouroboros::EnumVariant::new(#variant_name)
+                    let discriminant =
+                        if let Some((_, syn::Expr::Lit(ref literal))) = variant.discriminant {
+                            if let syn::Lit::Int(i) = &literal.lit {
+                                Some(i)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                    if let Some(i) = discriminant {
+                        quote! {
+                            ::ouroboros::EnumVariant::with_const_value(#variant_name, #i)
+                        }
+                    } else {
+                        quote! {
+                            ::ouroboros::EnumVariant::new(#variant_name)
+                        }
                     }
                 });
                 quote!(::ouroboros::Type::Enum(::ouroboros::Enum::new(#name_as_str, [#(#variants,)*])))

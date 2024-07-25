@@ -1,4 +1,5 @@
 use crate::{
+    alias::Alias,
     field::Fields,
     product::{Array, Record, Tuple},
     sum::{Enum, Optional, Union},
@@ -15,7 +16,7 @@ impl TypenameVisitor {
 
     pub fn visit_type_with_prefix(t: &Type, prefix: &str) -> String {
         match t {
-            Type::Unit => todo!(),
+            Type::Unit => unimplemented!(),
             Type::Bool => Self::visit_bool_with_prefix(prefix),
             Type::I8 => Self::visit_i8_with_prefix(prefix),
             Type::I16 => Self::visit_i16_with_prefix(prefix),
@@ -41,7 +42,7 @@ impl TypenameVisitor {
             Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
-            Type::Alias(alias) => Self::visit_type(&alias.t), // FIXME: Should we transpile the alias?
+            Type::Alias(alias) => Self::visit_alias(&alias),
         }
     }
 
@@ -233,6 +234,14 @@ impl TypenameVisitor {
     pub fn visit_symbolic_with_prefix(sym: &Symbolic, prefix: &str) -> String {
         format!("{}{}_Symbol", prefix, &sym.n)
     }
+
+    pub fn visit_alias(alias: &Alias) -> String {
+        Self::visit_alias_with_prefix(alias, "")
+    }
+
+    pub fn visit_alias_with_prefix(alias: &Alias, prefix: &str) -> String {
+        format!("{}{}", prefix, alias.n)
+    }
 }
 
 pub struct TypedefVisitor;
@@ -270,7 +279,7 @@ impl TypedefVisitor {
             Type::Ptr(_) => todo!(),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
-            Type::Alias(alias) => Self::visit_type(&alias.t), // FIXME: Should we transpile the alias?
+            Type::Alias(alias) => Self::visit_alias_with_prefix(&alias, prefix), // FIXME: Should we transpile the alias?
         }
     }
 
@@ -562,12 +571,26 @@ impl TypedefVisitor {
         s.push_str("_Symbol {};");
         s
     }
+
+    pub fn visit_alias(alias: &Alias) -> String {
+        Self::visit_alias_with_prefix(alias, "")
+    }
+
+    pub fn visit_alias_with_prefix(alias: &Alias, prefix: &str) -> String {
+        let mut s = String::new();
+        s.push_str(prefix);
+        s.push_str("using ");
+        s.push_str(&alias.n);
+        s.push_str(&format!(" = {};", TypenameVisitor::visit_type(&alias.t)));
+        s
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        field::UnnamedField,
+        alias::Alias,
+        field::{NamedField, UnnamedField},
         product::{Array, Record, Tuple},
         sum::{Enum, EnumVariant, Optional, Union, UnionVariant},
         symbolic::Symbolic,
@@ -686,6 +709,32 @@ mod test {
         assert_eq!(
             TypedefVisitor::visit_symbolic(&t),
             r#"struct Foo_Symbol {};"#
+        );
+    }
+
+    #[test]
+    fn alias() {
+        let t = Alias::new("Foo", Type::U32);
+
+        assert_eq!(TypedefVisitor::visit_alias(&t), r#"using Foo = uint32_t;"#);
+        assert_eq!(
+            TypedefVisitor::visit_type(&Type::from(t)),
+            r#"using Foo = uint32_t;"#
+        );
+
+        let t = Record::new(
+            "Foo",
+            [NamedField::new(
+                "bar",
+                Type::Alias(Alias::new("Baz", Type::U32)),
+            )],
+        );
+
+        assert_eq!(
+            TypedefVisitor::visit_record(&t),
+            r#"struct Foo {
+    Baz bar;
+};"#
         );
     }
 }
