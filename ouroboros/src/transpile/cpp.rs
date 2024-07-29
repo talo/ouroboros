@@ -5,6 +5,7 @@ use crate::{
     sum::{Enum, Optional, Union},
     symbolic::Symbolic,
     type_info::Type,
+    UnnamedFields,
 };
 
 pub struct TypenameVisitor;
@@ -39,7 +40,7 @@ impl TypenameVisitor {
             Type::Fallible(_) => unimplemented!(),
             Type::Optional(optional) => Self::visit_optional_with_prefix(optional, prefix),
             Type::Union(union) => Self::visit_union_with_prefix(union, prefix),
-            Type::Ptr(_) => todo!(),
+            Type::Ptr(_) => Self::visit_string_with_prefix(prefix),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
             Type::Alias(alias) => Self::visit_alias(&alias),
@@ -276,7 +277,7 @@ impl TypedefVisitor {
             Type::Fallible(_) => unimplemented!(),
             Type::Optional(optional) => Self::visit_optional_with_prefix(optional, prefix),
             Type::Union(union) => Self::visit_union_with_prefix(union, prefix),
-            Type::Ptr(_) => todo!(),
+            Type::Ptr(_) => Self::visit_string_with_prefix(prefix),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
             Type::Alias(alias) => Self::visit_alias_with_prefix(&alias, prefix), // FIXME: Should we transpile the alias?
@@ -506,27 +507,33 @@ impl TypedefVisitor {
             s.push_str(&variant.n);
             s.push_str(",\n");
         }
-        s.push_str(prefix);
         s.push_str("    };\n\n");
 
-        for variant in &union.variants {
-            match &variant.fields {
-                Some(Fields::Unnamed(fields)) => {
-                    s.push_str(&Self::visit_record_with_prefix(
-                        &Record::new(
+        let inner_types: Vec<_> = union
+            .variants
+            .iter()
+            .map(|variant| {
+                variant
+                    .fields
+                    .as_ref()
+                    .map(|variant_fields| match variant_fields {
+                        Fields::Unnamed(fields) => Record::new(
                             format!("{}_Body", &variant.n),
                             Fields::Unnamed(fields.clone()),
                         ),
-                        &format!("{}    ", prefix),
-                    ));
-                    s.push('\n');
-                }
-                Some(Fields::Named(fields)) => {
-                    s.push_str(&Self::visit_record_with_prefix(
-                        &Record::new(
+                        Fields::Named(fields) => Record::new(
                             format!("{}_Body", &variant.n),
                             Fields::named(fields.clone()),
                         ),
+                    })
+            })
+            .collect();
+
+        for (inner_type, variant) in inner_types.iter().zip(&union.variants) {
+            match inner_type {
+                Some(t) => {
+                    s.push_str(&Self::visit_record_with_prefix(
+                        t,
                         &format!("{}    ", prefix),
                     ));
                     s.push('\n');
@@ -539,21 +546,32 @@ impl TypedefVisitor {
                 }
             }
         }
+
         s.push('\n');
         s.push_str(prefix);
         s.push_str("    Tag tag;\n");
-        s.push_str(prefix);
-        s.push_str("    union {\n");
-        for variant in &union.variants {
-            s.push_str(prefix);
-            s.push_str("        ");
-            s.push_str(&variant.n);
-            s.push_str("_Body ");
+        for (variant, inner_type) in union.variants.iter().zip(inner_types.iter()) {
+            match inner_type {
+                Some(t) => {
+                    s.push_str(&Self::visit_optional_with_prefix(
+                        &Optional::new(t.clone()),
+                        &format!("{}    ", prefix),
+                    ));
+                }
+                None => {
+                    s.push_str(&Self::visit_optional_with_prefix(
+                        &Optional::new(Record::new(
+                            format!("{}_Body", variant.n),
+                            Fields::unnamed(UnnamedFields::empty()),
+                        )),
+                        &format!("{}    ", prefix),
+                    ));
+                }
+            }
+            s.push(' ');
             s.push_str(&variant.n);
             s.push_str(";\n");
         }
-        s.push_str(prefix);
-        s.push_str("    };\n");
         s.push_str(prefix);
         s.push_str("};");
         s
@@ -693,11 +711,9 @@ mod test {
     struct Z_Body {};
 
     Tag tag;
-    union {
-        X_Body X;
-        Y_Body Y;
-        Z_Body Z;
-    };
+    std::optional<X_Body> X;
+    std::optional<Y_Body> Y;
+    std::optional<Z_Body> Z;
 };"#
         );
     }
