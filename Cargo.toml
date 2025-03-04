@@ -2,6 +2,7 @@
 members = [
     "ouroboros",
     "ouroboros-proc-macro",
+    "ouroboros-rex",
     "ouroboros-vm",
     "ouroboros-vm-prelude",
     "ouroboros-wasm",
