@@ -5,4 +5,6 @@ edition = "2024"
 
 [dependencies]
 ouroboros = { path = "../ouroboros" }
+ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }
 rex-type-system = { path = "../../rex/rex-type-system" }
+rex-proc-macro = { path = "../../rex/rex-proc-macro" }
