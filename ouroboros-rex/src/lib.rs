@@ -66,7 +66,10 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> RexType {
         OuroborosType::Enum(e) => {
             // Rex ADT variants don't support integer values
             if e.variants.iter().any(|v| v.v.is_some()) {
-                panic!("Unsupported ouroboros type: Enum with int values");
+                if !e.variants.iter().all(|v| v.v.is_some()) {
+                    panic!("Unsupported ouroboros type: Mixed Enum with only some int values");
+                }
+                return RexType::Uint;
             }
             RexType::ADT(ADT {
                 name: e.n.clone(),
@@ -450,6 +453,20 @@ pub mod test {
 
         assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
+    }
+
+    #[test]
+    fn test_enum_int() {
+        #[derive(Rex, TypeInfo)]
+        enum Foo {
+            One = 1,
+            Two = 2,
+            Three = 3,
+        }
+
+        assert_eq!(ouroboros_to_rex(&Foo::t()), RexType::Uint);
+        // derive(Rex) treats this as an ADT
+        // assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 
     #[test]
