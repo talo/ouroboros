@@ -465,8 +465,7 @@ pub mod test {
         }
 
         assert_eq!(ouroboros_to_rex(&Foo::t()), RexType::Uint);
-        // derive(Rex) treats this as an ADT
-        // assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
+        assert_eq!(rex_to_ouroboros(&Foo::to_type()), OuroborosType::U64);
     }
 
     #[test]
