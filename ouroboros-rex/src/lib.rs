@@ -233,6 +233,7 @@ pub fn rex_to_ouroboros(rex_type: &RexType) -> OuroborosType {
         RexType::Option(t) => OuroborosType::Optional(Optional {
             t: Box::new(rex_to_ouroboros(t))
         }),
+        RexType::Promise(_) => panic!("Unsupported Rex type: Promise"),
         RexType::List(t) => OuroborosType::Array(Array::new(rex_to_ouroboros(t))),
         RexType::Dict(_) => panic!("Unsupported Rex type: Dict"),
         RexType::Tuple(ts) => {
