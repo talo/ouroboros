@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 ouroboros = { path = "../ouroboros" }
 ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }
-rex = { path = "../../rex/rex" }
+rex = { git = "ssh://git@github.com/talo/rex.git", branch = "tengu" }
