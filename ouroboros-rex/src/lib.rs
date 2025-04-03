@@ -65,13 +65,6 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Arc<RexType> {
             ouroboros_to_rex(&*func.b),
         )),
         OuroborosType::Enum(e) => {
-            // Rex ADT variants don't support integer values
-            if e.variants.iter().any(|v| v.v.is_some()) {
-                if !e.variants.iter().all(|v| v.v.is_some()) {
-                    panic!("Unsupported ouroboros type: Mixed Enum with only some int values");
-                }
-                return Arc::new(RexType::Uint);
-            }
             Arc::new(RexType::ADT(ADT {
                 name: e.n.clone(),
                 variants: e
@@ -455,15 +448,35 @@ pub mod test {
 
     #[test]
     fn test_enum_int() {
-        #[derive(Rex, TypeInfo)]
-        enum Foo {
-            One = 1,
-            Two = 2,
-            Three = 3,
+        mod int {
+            use ouroboros_proc_macro::*;
+            use rex::Rex;
+
+            #[derive(Rex, TypeInfo)]
+            pub enum Foo {
+                One = 1,
+                Two = 2,
+                Three = 3,
+            }
         }
 
-        assert_eq!(*ouroboros_to_rex(&Foo::t()), RexType::Uint);
-        assert_eq!(rex_to_ouroboros(&Foo::to_type()), OuroborosType::U64);
+        mod plain {
+            use ouroboros_proc_macro::*;
+            use rex::Rex;
+
+            #[derive(Rex, TypeInfo)]
+            pub enum Foo {
+                One,
+                Two,
+                Three,
+            }
+        }
+
+        // Rex's ADTVariant doesn't keep track of the integer values associated with enum
+        // variants. So when we convert back to the ouroboros type, we'll get the same result
+        // as derive(TypeInfo) would produce if there were no integer values in the enum.
+        assert_eq!(ouroboros_to_rex(&int::Foo::t()), int::Foo::to_type());
+        assert_eq!(rex_to_ouroboros(&int::Foo::to_type()), plain::Foo::t());
     }
 
     #[test]
