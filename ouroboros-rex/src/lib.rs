@@ -1,12 +1,15 @@
-use std::{collections::{BTreeMap, HashMap}, sync::Arc};
 use ouroboros::alias::Alias;
-use ouroboros::field::{Fields, UnnamedFields, UnnamedField, NamedFields, NamedField};
-use ouroboros::product::{Array, Tuple, Record, RecordDocs, RecordFieldDocs, Func};
+use ouroboros::field::{Fields, NamedField, NamedFields, UnnamedField, UnnamedFields};
+use ouroboros::product::{Array, Func, Record, RecordDocs, RecordFieldDocs, Tuple};
 use ouroboros::ptr::Ptr;
-use ouroboros::sum::{Optional, Union, UnionVariant, Enum, EnumVariant, Fallible};
+use ouroboros::sum::{Enum, EnumVariant, Fallible, Optional, Union, UnionVariant};
 use ouroboros::symbolic::Symbolic;
 use ouroboros::type_info::Type as OuroborosType;
-use rex::type_system::types::{Type as RexType, ADT, ADTVariant};
+use rex::type_system::types::{ADT, ADTVariant, Type as RexType};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 // Note: We cannot use From/Into here as these only work if the types
 // they are implemented on are defined in the same crate
@@ -31,20 +34,17 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Arc<RexType> {
         OuroborosType::Array(a) => Arc::new(RexType::List(ouroboros_to_rex(&a.t))),
         OuroborosType::Record(r) => {
             let t_docs: Option<BTreeMap<String, String>> = match &r.doc {
-                Some(rdocs) => {
-                    match &rdocs.fields {
-                        Some(RecordFieldDocs::Named(named)) => {
-                            if named.len() > 0 {
-                                Some(BTreeMap::from_iter(named.clone().into_iter()))
-                            }
-                            else {
-                                None
-                            }
+                Some(rdocs) => match &rdocs.fields {
+                    Some(RecordFieldDocs::Named(named)) => {
+                        if named.len() > 0 {
+                            Some(BTreeMap::from_iter(named.clone().into_iter()))
+                        } else {
+                            None
                         }
-                        Some(RecordFieldDocs::Unnamed(_)) => None,
-                        None => None,
                     }
-                }
+                    Some(RecordFieldDocs::Unnamed(_)) => None,
+                    None => None,
+                },
                 None => None,
             };
 
@@ -62,7 +62,8 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Arc<RexType> {
         OuroborosType::Tuple(tuple) => unnamed_fields_to_rex(&tuple.fields),
         OuroborosType::Func(func) => Arc::new(RexType::Arrow(
             ouroboros_to_rex(&*func.a),
-            ouroboros_to_rex(&*func.b))),
+            ouroboros_to_rex(&*func.b),
+        )),
         OuroborosType::Enum(e) => {
             // Rex ADT variants don't support integer values
             if e.variants.iter().any(|v| v.v.is_some()) {
@@ -73,7 +74,8 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Arc<RexType> {
             }
             Arc::new(RexType::ADT(ADT {
                 name: e.n.clone(),
-                variants: e.variants
+                variants: e
+                    .variants
                     .iter()
                     .map(|v| ADTVariant {
                         name: v.n.clone(),
@@ -87,25 +89,23 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Arc<RexType> {
         }
         OuroborosType::Fallible(f) => Arc::new(RexType::Result(
             ouroboros_to_rex(&f.ok),
-            ouroboros_to_rex(&f.err))),
+            ouroboros_to_rex(&f.err),
+        )),
         OuroborosType::Optional(o) => Arc::new(RexType::Option(ouroboros_to_rex(&o.t))),
         OuroborosType::Union(u) => Arc::new(RexType::ADT(ADT {
             name: u.n.clone(),
-            variants: u.variants
+            variants: u
+                .variants
                 .iter()
                 .map(|v| ADTVariant {
                     name: v.n.clone(),
                     t: match &v.fields {
-                        Some(Fields::Named(fields)) => {
-                            Some(named_fields_to_rex(fields))
-                        }
-                        Some(Fields::Unnamed(fields)) => {
-                            match fields.fields.len() {
-                                0 => None,
-                                1 => Some(ouroboros_to_rex(&fields.fields[0].t)),
-                                _ => Some(unnamed_fields_to_rex(fields)),
-                            }
-                        }
+                        Some(Fields::Named(fields)) => Some(named_fields_to_rex(fields)),
+                        Some(Fields::Unnamed(fields)) => match fields.fields.len() {
+                            0 => None,
+                            1 => Some(ouroboros_to_rex(&fields.fields[0].t)),
+                            _ => Some(unnamed_fields_to_rex(fields)),
+                        },
                         None => None,
                     },
                     docs: None,
@@ -114,49 +114,37 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Arc<RexType> {
                 .collect(),
             docs: None,
         })),
-        OuroborosType::Ptr(ptr) => {
-            Arc::new(RexType::ADT(ADT {
+        OuroborosType::Ptr(ptr) => Arc::new(RexType::ADT(ADT {
+            name: "Ptr".to_string(),
+            docs: None,
+            variants: vec![ADTVariant {
                 name: "Ptr".to_string(),
+                t: Some(ouroboros_to_rex(&*ptr.t)),
                 docs: None,
-                variants: vec![
-                    ADTVariant {
-                        name: "Ptr".to_string(),
-                        t: Some(ouroboros_to_rex(&*ptr.t)),
-                        docs: None,
-                        t_docs: None,
-                    }
-                ],
-            }))
-        }
-        OuroborosType::Symbolic(symbolic) => {
-            Arc::new(RexType::ADT(ADT {
-                name: symbolic.n.to_string(),
-                docs: symbolic.doc.as_ref().map(|d| d.to_string()),
-                variants: vec![
-                    ADTVariant {
-                        name: symbolic.n.clone(),
-                        t: None,
-                        docs: None,
-                        t_docs: None,
-                    }
-                ],
-            }))
-        }
+                t_docs: None,
+            }],
+        })),
+        OuroborosType::Symbolic(symbolic) => Arc::new(RexType::ADT(ADT {
+            name: symbolic.n.to_string(),
+            docs: symbolic.doc.as_ref().map(|d| d.to_string()),
+            variants: vec![ADTVariant {
+                name: symbolic.n.clone(),
+                t: None,
+                docs: None,
+                t_docs: None,
+            }],
+        })),
         OuroborosType::Generic(_) => panic!("Unsupported ouroboros type: Generic"),
-        OuroborosType::Alias(alias) => {
-            Arc::new(RexType::ADT(ADT {
+        OuroborosType::Alias(alias) => Arc::new(RexType::ADT(ADT {
+            name: alias.n.clone(),
+            variants: vec![ADTVariant {
                 name: alias.n.clone(),
-                variants: vec![
-                    ADTVariant {
-                        name: alias.n.clone(),
-                        t: Some(ouroboros_to_rex(&*alias.t)),
-                        docs: None,
-                        t_docs: None,
-                    }
-                ],
+                t: Some(ouroboros_to_rex(&*alias.t)),
                 docs: None,
-            }))
-        }
+                t_docs: None,
+            }],
+            docs: None,
+        })),
     }
 }
 
@@ -192,9 +180,7 @@ fn rex_to_fields(rex_type: &RexType) -> Fields {
                     t: rex_to_ouroboros(t),
                 });
             }
-            Fields::Unnamed(UnnamedFields {
-                fields: our_fields,
-            })
+            Fields::Unnamed(UnnamedFields { fields: our_fields })
         }
         RexType::Dict(entries) => {
             let mut our_fields: Vec<NamedField> = Vec::new();
@@ -204,15 +190,13 @@ fn rex_to_fields(rex_type: &RexType) -> Fields {
                     t: rex_to_ouroboros(t),
                 });
             }
-            Fields::Named(NamedFields {
-                fields: our_fields,
-            })
+            Fields::Named(NamedFields { fields: our_fields })
         }
-        _ => {
-            Fields::Unnamed(UnnamedFields {
-                fields: vec![UnnamedField { t: rex_to_ouroboros(rex_type) }],
-            })
-        }
+        _ => Fields::Unnamed(UnnamedFields {
+            fields: vec![UnnamedField {
+                t: rex_to_ouroboros(rex_type),
+            }],
+        }),
     }
 }
 
@@ -231,7 +215,7 @@ pub fn rex_to_ouroboros(rex_type: &RexType) -> OuroborosType {
             err: Box::new(rex_to_ouroboros(err)),
         }),
         RexType::Option(t) => OuroborosType::Optional(Optional {
-            t: Box::new(rex_to_ouroboros(t))
+            t: Box::new(rex_to_ouroboros(t)),
         }),
         RexType::Promise(_) => panic!("Unsupported Rex type: Promise"),
         RexType::List(t) => OuroborosType::Array(Array::new(rex_to_ouroboros(t))),
@@ -239,8 +223,7 @@ pub fn rex_to_ouroboros(rex_type: &RexType) -> OuroborosType {
         RexType::Tuple(ts) => {
             if ts.len() == 0 {
                 OuroborosType::Unit
-            }
-            else {
+            } else {
                 OuroborosType::Tuple(Tuple {
                     fields: UnnamedFields {
                         fields: ts
@@ -276,7 +259,9 @@ fn rex_adt_to_ouroboros(adt: &ADT) -> OuroborosType {
                     fields: Fields::Unnamed(UnnamedFields {
                         fields: entries
                             .iter()
-                            .map(|e| UnnamedField { t: rex_to_ouroboros(e) })
+                            .map(|e| UnnamedField {
+                                t: rex_to_ouroboros(e),
+                            })
                             .collect(),
                     }),
                 });
@@ -291,7 +276,7 @@ fn rex_adt_to_ouroboros(adt: &ADT) -> OuroborosType {
 
                 return OuroborosType::Alias(Alias {
                     n: adt.name.clone(),
-                    t: Box::new(rex_to_ouroboros(t))
+                    t: Box::new(rex_to_ouroboros(t)),
                 });
             }
             None => {
@@ -299,7 +284,7 @@ fn rex_adt_to_ouroboros(adt: &ADT) -> OuroborosType {
                     return OuroborosType::Symbolic(Symbolic {
                         n: adt.name.clone(),
                         doc: adt.docs.clone(),
-                    })
+                    });
                 }
             }
         }
@@ -348,7 +333,10 @@ fn rex_record_to_ouroboros(
 
     let fields = entries
         .iter()
-        .map(|(k, v)| NamedField { n: k.clone(), t: rex_to_ouroboros(v) })
+        .map(|(k, v)| NamedField {
+            n: k.clone(),
+            t: rex_to_ouroboros(v),
+        })
         .collect::<Vec<_>>();
 
     return OuroborosType::Record(Record {
@@ -358,45 +346,50 @@ fn rex_record_to_ouroboros(
     });
 }
 
-fn rex_enum_to_ouroboros(
-    name: &str,
-    variants: &[ADTVariant],
-) -> OuroborosType {
+fn rex_enum_to_ouroboros(name: &str, variants: &[ADTVariant]) -> OuroborosType {
     OuroborosType::Enum(Enum {
         doc: None,
         n: name.to_string(),
         variants: variants
             .iter()
-            .map(|v| EnumVariant { n: v.name.clone(), v: None })
+            .map(|v| EnumVariant {
+                n: v.name.clone(),
+                v: None,
+            })
             .collect(),
     })
 }
-
 
 #[cfg(test)]
 #[cfg(test)]
 pub mod test {
     #![allow(dead_code)]
     use super::*;
+    use ouroboros::{ptr::Ptr as OuroborosPtr, type_info::TypeInfo};
     use ouroboros_proc_macro::*;
-    use rex::{Rex, type_system::types::{ToType}};
-    use ouroboros::{type_info::TypeInfo, ptr::Ptr as OuroborosPtr};
+    use rex::{Rex, type_system::types::ToType};
     // use rex_type_system::types as rex;
 
     #[test]
     fn test_unit() {
-        assert_eq!(*ouroboros_to_rex(&OuroborosType::Unit), RexType::Tuple(vec![]));
-        assert_eq!(rex_to_ouroboros(&RexType::Tuple(vec![])), OuroborosType::Unit)
+        assert_eq!(
+            *ouroboros_to_rex(&OuroborosType::Unit),
+            RexType::Tuple(vec![])
+        );
+        assert_eq!(
+            rex_to_ouroboros(&RexType::Tuple(vec![])),
+            OuroborosType::Unit
+        )
     }
 
     #[test]
     fn test_tuple1() {
         let our_type = OuroborosType::Tuple(Tuple {
             fields: UnnamedFields {
-                fields: vec![
-                    UnnamedField { t: OuroborosType::U64 },
-                ],
-            }
+                fields: vec![UnnamedField {
+                    t: OuroborosType::U64,
+                }],
+            },
         });
         let rex_type = ouroboros_to_rex(&our_type);
         assert_eq!(*rex_type, RexType::Tuple(vec![Arc::new(RexType::Uint)]));
@@ -408,13 +401,20 @@ pub mod test {
         let our_type = OuroborosType::Tuple(Tuple {
             fields: UnnamedFields {
                 fields: vec![
-                    UnnamedField { t: OuroborosType::U64 },
-                    UnnamedField { t: OuroborosType::String },
+                    UnnamedField {
+                        t: OuroborosType::U64,
+                    },
+                    UnnamedField {
+                        t: OuroborosType::String,
+                    },
                 ],
-            }
+            },
         });
         let rex_type = ouroboros_to_rex(&our_type);
-        assert_eq!(*rex_type, RexType::Tuple(vec![Arc::new(RexType::Uint), Arc::new(RexType::String)]));
+        assert_eq!(
+            *rex_type,
+            RexType::Tuple(vec![Arc::new(RexType::Uint), Arc::new(RexType::String)])
+        );
         assert_eq!(rex_to_ouroboros(&rex_type), our_type);
     }
 
@@ -559,11 +559,13 @@ pub mod test {
 
         assert_eq!(
             rex_to_ouroboros(&ouroboros_to_rex(&different_sizes::Foo::t())),
-            all_64::Foo::t());
+            all_64::Foo::t()
+        );
 
         assert_eq!(
             ouroboros_to_rex(&different_sizes::Foo::t()),
-            all_64::Foo::to_type());
+            all_64::Foo::to_type()
+        );
     }
 
     #[test]
@@ -639,7 +641,8 @@ pub mod test {
         });
         let rex_type = Arc::new(RexType::Arrow(
             Arc::new(RexType::Uint),
-            Arc::new(RexType::String)));
+            Arc::new(RexType::String),
+        ));
 
         assert_eq!(ouroboros_to_rex(&our_type), rex_type);
         assert_eq!(rex_to_ouroboros(&rex_type), our_type);
