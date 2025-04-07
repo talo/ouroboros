@@ -421,7 +421,7 @@ pub mod test {
             b: String,
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t())
     }
 
@@ -430,7 +430,7 @@ pub mod test {
         #[derive(Rex, TypeInfo)]
         pub struct Foo(pub u64, pub String);
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t())
     }
 
@@ -442,7 +442,7 @@ pub mod test {
             Two,
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 
@@ -475,7 +475,7 @@ pub mod test {
         // Rex's ADTVariant doesn't keep track of the integer values associated with enum
         // variants. So when we convert back to the ouroboros type, we'll get the same result
         // as derive(TypeInfo) would produce if there were no integer values in the enum.
-        assert_eq!(ouroboros_to_rex(&int::Foo::t()), int::Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&int::Foo::t()), int::Foo::to_type());
         assert_eq!(rex_to_ouroboros(&int::Foo::to_type()), plain::Foo::t());
     }
 
@@ -487,7 +487,7 @@ pub mod test {
             Two(String),
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 
@@ -499,7 +499,7 @@ pub mod test {
             Two(String, f64),
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 
@@ -512,7 +512,7 @@ pub mod test {
             Three(String, f64),
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 
@@ -524,7 +524,7 @@ pub mod test {
             Two { a: f64, b: bool },
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 
@@ -576,7 +576,7 @@ pub mod test {
         );
 
         assert_eq!(
-            ouroboros_to_rex(&different_sizes::Foo::t()),
+            *ouroboros_to_rex(&different_sizes::Foo::t()),
             all_64::Foo::to_type()
         );
     }
@@ -592,7 +592,7 @@ pub mod test {
         });
         let rex_type = Foo::to_type();
 
-        assert_eq!(ouroboros_to_rex(&our_type), rex_type);
+        assert_eq!(*ouroboros_to_rex(&our_type), rex_type);
         assert_eq!(rex_to_ouroboros(&rex_type), our_type);
     }
 
@@ -610,7 +610,7 @@ pub mod test {
         });
         let rex_type = Foo::to_type();
 
-        assert_eq!(ouroboros_to_rex(&our_type), rex_type);
+        assert_eq!(*ouroboros_to_rex(&our_type), rex_type);
         assert_eq!(rex_to_ouroboros(&rex_type), our_type);
     }
 
@@ -627,7 +627,7 @@ pub mod test {
         });
         let rex_type = Foo::to_type();
 
-        assert_eq!(ouroboros_to_rex(&our_type), rex_type);
+        assert_eq!(*ouroboros_to_rex(&our_type), rex_type);
         assert_eq!(rex_to_ouroboros(&rex_type), our_type);
     }
 
@@ -642,7 +642,7 @@ pub mod test {
             t: Box::new(OuroborosType::String),
         });
         let rex_type = Ptr::to_type();
-        assert_eq!(ouroboros_to_rex(&our_type), rex_type);
+        assert_eq!(*ouroboros_to_rex(&our_type), rex_type);
         assert_eq!(rex_to_ouroboros(&rex_type), our_type);
     }
 
@@ -668,7 +668,7 @@ pub mod test {
             pub a: Result<u64, String>,
         }
 
-        assert_eq!(ouroboros_to_rex(&Foo::t()), Foo::to_type());
+        assert_eq!(*ouroboros_to_rex(&Foo::t()), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()), Foo::t());
     }
 }
