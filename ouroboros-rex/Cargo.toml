@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 ouroboros = { path = "../ouroboros" }
 ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }
-rex = { git = "ssh://git@github.com/talo/rex.git", rev = "52b8bae8a5e222a17c85bb594317c1c9b6dad0d0" }
+rex = { git = "ssh://git@github.com/talo/rex.git", rev = "8dcba3e1fbc46ab556cee6a5212e95302ae3db78" }
