@@ -1,5 +1,6 @@
 use ouroboros::alias::Alias;
 use ouroboros::field::{Fields, NamedField, NamedFields, UnnamedField, UnnamedFields};
+use ouroboros::generic::Generic;
 use ouroboros::product::{Array, Func, Record, RecordDocs, RecordFieldDocs, Tuple};
 use ouroboros::ptr::Ptr;
 use ouroboros::sum::{Enum, EnumVariant, Fallible, Optional, Union, UnionVariant};
@@ -130,7 +131,7 @@ pub fn ouroboros_to_rex(our_type: &OuroborosType) -> Result<Arc<RexType>, String
                 t_docs: None,
             }],
         }))),
-        OuroborosType::Generic(_) => Err("Unsupported ouroboros type: Generic".to_string()),
+        OuroborosType::Generic(g) => Ok(Arc::new(RexType::UnresolvedVar(g.n.clone()))),
         OuroborosType::Alias(alias) => Ok(Arc::new(RexType::ADT(ADT {
             name: alias.n.clone(),
             variants: vec![ADTVariant {
@@ -198,7 +199,7 @@ fn rex_to_fields(rex_type: &RexType) -> Result<Fields, String> {
 
 pub fn rex_to_ouroboros(rex_type: &RexType) -> Result<OuroborosType, String> {
     match rex_type {
-        RexType::UnresolvedVar(_) => Err("Unsupported Rex type: UnresolvedVar".to_string()),
+        RexType::UnresolvedVar(name) => Ok(OuroborosType::Generic(Generic::new(name))),
         RexType::Var(_) => Err("Unsupported Rex type: Var".to_string()),
         RexType::ForAll(_, _, _) => Err("Unsupported Rex type: ForAll".to_string()),
         RexType::ADT(adt) => rex_adt_to_ouroboros(adt),
@@ -677,5 +678,13 @@ pub mod test {
 
         assert_eq!(*ouroboros_to_rex(&Foo::t()).unwrap(), Foo::to_type());
         assert_eq!(rex_to_ouroboros(&Foo::to_type()).unwrap(), Foo::t());
+    }
+
+    #[test]
+    fn test_generic() {
+        let our_generic = OuroborosType::Generic(Generic::new("T"));
+        let rex_generic = Arc::new(RexType::UnresolvedVar("T".to_string()));
+        assert_eq!(ouroboros_to_rex(&our_generic).unwrap(), rex_generic);
+        assert_eq!(rex_to_ouroboros(&rex_generic).unwrap(), our_generic);
     }
 }
