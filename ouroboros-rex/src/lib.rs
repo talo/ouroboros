@@ -223,7 +223,6 @@ pub fn rex_to_ouroboros(rex_type: &RexType) -> Result<OuroborosType, String> {
     match rex_type {
         RexType::UnresolvedVar(name) => Ok(OuroborosType::Generic(Generic::new(name))),
         RexType::Var(_) => Err("Unsupported Rex type: Var".to_string()),
-        RexType::ForAll(_, _, _) => Err("Unsupported Rex type: ForAll".to_string()),
         RexType::ADT(adt) => rex_adt_to_ouroboros(adt),
         RexType::Arrow(a, b) => Ok(OuroborosType::Func(Func {
             a: Box::new(rex_to_ouroboros(a)?),
