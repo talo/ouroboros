@@ -1937,7 +1937,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "rex"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1959,7 +1959,7 @@ dependencies = [
 [[package]]
 name = "rex-ast"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -1977,7 +1977,7 @@ dependencies = [
 [[package]]
 name = "rex-engine"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2000,7 +2000,7 @@ dependencies = [
 [[package]]
 name = "rex-lexer"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "regex",
  "serde",
@@ -2011,7 +2011,7 @@ dependencies = [
 [[package]]
 name = "rex-parser"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "regex",
  "rex-ast",
@@ -2022,7 +2022,7 @@ dependencies = [
 [[package]]
 name = "rex-proc-macro"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2032,7 +2032,7 @@ dependencies = [
 [[package]]
 name = "rex-type-system"
 version = "0.1.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a#a1b40d0dfa589fed1b2f6a6f2bf351d7e7b8628a"
+source = "git+ssh://git@github.com/talo/rex.git?rev=2f16b55ae43f4a3102b4f43776aecedd12d2bdf2#2f16b55ae43f4a3102b4f43776aecedd12d2bdf2"
 dependencies = [
  "chrono",
  "rand 0.8.5",
