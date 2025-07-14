@@ -1,0 +1,9 @@
+[package]
+name = "ouroboros-rex"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ouroboros = { path = "../ouroboros" }
+ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }
+rex = { git = "ssh://git@github.com/talo/rex.git" }

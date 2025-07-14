@@ -293,6 +293,7 @@ pub fn is_ptr_valid(mem_data: &[u8], ptr: i32, size: i32) -> bool {
     (ptr as usize) < mem_data.len() && (ptr + size) as usize <= mem_data.len()
 }
 
+#[cfg(target_arch = "wasm32")]
 #[cfg(test)]
 mod test {
     use ouroboros::Lambda;
