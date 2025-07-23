@@ -9,8 +9,8 @@ impl sqlx::Type<sqlx::Postgres> for Type {
 impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Type {
     fn encode_by_ref(
         &self,
-        buf: &mut <sqlx::Postgres as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
-    ) -> sqlx::encode::IsNull {
+        buf: &mut <sqlx::Postgres as sqlx::Database>::ArgumentBuffer<'q>,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Sync + Send>> {
         serde_json::to_value(self)
             .expect("type is valid json")
             .encode_by_ref(buf)
@@ -19,8 +19,8 @@ impl<'q> sqlx::Encode<'q, sqlx::Postgres> for Type {
 
 impl<'r> sqlx::Decode<'r, sqlx::Postgres> for Type {
     fn decode(
-        value: <sqlx::Postgres as sqlx::database::HasValueRef<'r>>::ValueRef,
-    ) -> Result<Self, sqlx::error::BoxDynError> {
+        value: <sqlx::Postgres as sqlx::database::Database>::ValueRef<'r>,
+    ) -> Result<Self, Box<dyn std::error::Error + Sync + Send>> {
         Ok(serde_json::from_value(sqlx::types::JsonValue::decode(
             value,
         )?)?)
