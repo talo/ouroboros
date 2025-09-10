@@ -188,11 +188,10 @@ fn get_discriminant(v: &EnumVariant, patches: Option<&Vec<EnumPatch>>) -> Option
         }
     }
 
-    if discriminant.is_none() {
-        if let Some(d) = v.v {
+    if discriminant.is_none()
+        && let Some(d) = v.v {
             discriminant = Some(d.into());
         }
-    }
     discriminant
 }
 

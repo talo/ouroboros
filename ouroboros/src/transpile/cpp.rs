@@ -43,7 +43,7 @@ impl TypenameVisitor {
             Type::Ptr(_) => Self::visit_string_with_prefix(prefix),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
-            Type::Alias(alias) => Self::visit_alias(&alias),
+            Type::Alias(alias) => Self::visit_alias(alias),
         }
     }
 
@@ -280,7 +280,7 @@ impl TypedefVisitor {
             Type::Ptr(_) => Self::visit_string_with_prefix(prefix),
             Type::Symbolic(sym) => Self::visit_symbolic_with_prefix(sym, prefix),
             Type::Generic(_) => todo!(),
-            Type::Alias(alias) => Self::visit_alias_with_prefix(&alias, prefix), // FIXME: Should we transpile the alias?
+            Type::Alias(alias) => Self::visit_alias_with_prefix(alias, prefix), // FIXME: Should we transpile the alias?
         }
     }
 
