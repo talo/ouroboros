@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ouroboros = { path = "../ouroboros" }
+ouroboros = { path = "../ouroboros", default-features = false }
 ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }
 rex = { git = "ssh://git@github.com/talo/rex.git" }
