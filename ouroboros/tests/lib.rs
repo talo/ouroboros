@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_names)]
+
 use ouroboros::{
     transpile::{cpp, python, ts},
     TypeName, UnnamedField,
@@ -58,6 +60,7 @@ enum Bar {
 }
 
 #[allow(dead_code)]
+#[allow(clippy::disallowed_names)]
 #[derive(Clone, Debug, Deserialize, TypeInfo, Serialize)]
 enum Baz {
     X,

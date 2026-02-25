@@ -327,7 +327,7 @@ where
                                                 .and_then(|object_fields| {
                                                     object_fields.get(&field.n)
                                                 })
-                                                .unwrap_or(&mut Value::Null),
+                                                .unwrap_or(&Value::Null),
                                         )?;
                                     }
                                 }
@@ -346,7 +346,7 @@ where
                                             object
                                                 .get(&variant.n)
                                                 .and_then(|object_fields| object_fields.get(i))
-                                                .unwrap_or(&mut Value::Null),
+                                                .unwrap_or(&Value::Null),
                                         )?;
                                     }
                                 }
@@ -1063,7 +1063,6 @@ macro_rules! float_range_check {
 }
 
 #[cfg(test)]
-
 mod test {
     use serde::Serialize;
 

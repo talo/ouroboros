@@ -31,7 +31,7 @@ pub enum ParseResult<'a, I> {
 /// # Safety
 /// It is assumed that `args` is a pointer returned by `__ouroboros__alloc` that
 /// points to a nul-terminated C string.
-pub unsafe fn decode_args<I, O>(name: &str, args: *const c_char) -> ParseResult<I>
+pub unsafe fn decode_args<I, O>(name: &str, args: *const c_char) -> ParseResult<'_, I>
 where
     I: Deserialize<'static> + TypeInfo,
     O: TypeInfo,
