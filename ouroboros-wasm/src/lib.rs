@@ -24,7 +24,7 @@ pub struct Manifest<'a> {
 }
 
 pub enum ParseResult<'a, I> {
-    Manifest(Manifest<'a>),
+    Manifest(Box<Manifest<'a>>),
     Args(I),
 }
 
@@ -46,11 +46,11 @@ where
         .map(|s| s.trim().starts_with("--manifest"))
         .unwrap_or(false)
     {
-        ParseResult::Manifest(Manifest {
+        ParseResult::Manifest(Box::new(Manifest {
             name,
             input: I::t(),
             output: O::t(),
-        })
+        }))
     } else {
         ParseResult::Args(serde_json::from_str(args).expect("invalid json"))
     }
