@@ -1309,7 +1309,7 @@ version = "0.1.0"
 dependencies = [
  "ouroboros",
  "ouroboros-proc-macro",
- "rex",
+ "rexlang",
 ]
 
 [[package]]
@@ -1576,18 +1576,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caf4aa5b0f434c91fe5c7f1ecb6a5ece2130b02ad2a590589dda5146df959001"
 
 [[package]]
-name = "rex"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63a6ca9bea2cb090592099667d00151f6269967a523fe6b1a0f26a94934793e2"
+dependencies = [
+ "rexlang-core",
+ "tokio",
+]
+
+[[package]]
+name = "rexlang-ast"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d93bf92ac880650530115cf647ca86d1fd541cc40a9a5785c1df80be491bf7c4"
+dependencies = [
+ "async-recursion",
+ "async-trait",
+ "chrono",
+ "regex",
+ "rexlang-lexer",
+ "rpds",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "rexlang-core"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65414da08d27797548cbee07ebc1d507d337153e99c0e1c8f49f08942753e832"
 dependencies = [
  "clap",
- "rex-ast",
- "rex-engine",
- "rex-lexer",
- "rex-parser",
- "rex-proc-macro",
- "rex-ts",
- "rex-util",
+ "rexlang-ast",
+ "rexlang-engine",
+ "rexlang-lexer",
+ "rexlang-parser",
+ "rexlang-proc-macro",
+ "rexlang-typesystem",
+ "rexlang-util",
  "serde",
  "serde_json",
  "tokio",
@@ -1597,36 +1627,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "rex-ast"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
-dependencies = [
- "async-recursion",
- "async-trait",
- "chrono",
- "regex",
- "rex-lexer",
- "rpds",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "rex-engine"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang-engine"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdf836b3d6a1f357cbc474a38b461a65a12c87ea44dfc79446c8a73eb4835935"
 dependencies = [
  "async-recursion",
  "chrono",
  "futures",
- "rex-ast",
- "rex-lexer",
- "rex-parser",
- "rex-ts",
- "rex-util",
+ "rexlang-ast",
+ "rexlang-lexer",
+ "rexlang-parser",
+ "rexlang-typesystem",
+ "rexlang-util",
  "serde_json",
  "thiserror 1.0.69",
  "tracing",
@@ -1634,9 +1647,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "rex-lexer"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang-lexer"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6fa11e32f8fd2464a00d0d0c29ebce19e7fc6a4a9016aea0356306ff72c7ccd3"
 dependencies = [
  "regex",
  "serde",
@@ -1645,21 +1659,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "rex-parser"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang-parser"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "674dfab8a88ed779ac620a54ce398b43d28c73720dca2dc0980686703b94140a"
 dependencies = [
  "regex",
- "rex-ast",
- "rex-lexer",
- "rex-util",
+ "rexlang-ast",
+ "rexlang-lexer",
+ "rexlang-util",
  "thiserror 1.0.69",
 ]
 
 [[package]]
-name = "rex-proc-macro"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang-proc-macro"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72116f355b8c8908631ecaabbf263fb615e4025dc577179a72969d1cee4ece37"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1667,24 +1683,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "rex-ts"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang-typesystem"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e74a3d4d51737305788b13793875d5576ce08b75f7a55a0bcc245beb377b670e"
 dependencies = [
  "chrono",
- "rex-ast",
- "rex-lexer",
- "rex-parser",
- "rex-util",
+ "rexlang-ast",
+ "rexlang-lexer",
+ "rexlang-parser",
+ "rexlang-util",
  "rpds",
  "thiserror 1.0.69",
  "uuid",
 ]
 
 [[package]]
-name = "rex-util"
-version = "4.0.0"
-source = "git+ssh://git@github.com/talo/rex.git?rev=950755f6994c41bfd5508c7684ad974bcc765204#950755f6994c41bfd5508c7684ad974bcc765204"
+name = "rexlang-util"
+version = "3.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "476888f7c9eced7548d21eb792879ec4551cd04566e580787068baa65f75b1ea"
 dependencies = [
  "thiserror 1.0.69",
 ]
