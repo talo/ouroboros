@@ -1678,9 +1678,9 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "rexlang"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30d139b04f9ad527f06dc45136175e209d8ef4af60117e8046a302d6ccffcec3"
+checksum = "c037d4e43916325fba4507cf0a3953717fa71e6a0c1da26c2e523532dfeb431c"
 dependencies = [
  "rexlang-core",
  "tokio",
@@ -1688,9 +1688,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-ast"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c703295fc29c103e24c110f9d870714fa02fc2e706cc347205fa0fe7c553b980"
+checksum = "25bdb9d8c7db46045d9ec0a43f84d2fb30b303f997ecda7ca3391278cc35239c"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -1707,9 +1707,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-core"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e65c3289c2a27d8ea3877882061c88f1e322a1521e54a9b59b90495bd39de2e"
+checksum = "9843b61f8ca5a1c7cb5ba13bd4be57272c571941e39e842aefc885092726dd62"
 dependencies = [
  "clap",
  "rexlang-ast",
@@ -1729,9 +1729,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-engine"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae7a93afb7141489b222118bfd6eecbab0f83a338ab39b2d00ee287690fe8075"
+checksum = "2d8fbb012f11424223a7bb2e97d0bc7c257c75c528fe6fa32209e3dcee43c9eb"
 dependencies = [
  "async-recursion",
  "chrono",
@@ -1749,9 +1749,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-lexer"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df06dcdcbcb91b2377bb39db3066721e2f32b0e67ccbbbec1deec48ba4e3a2f7"
+checksum = "d2265d25e6c5e5e5228ebf3940955ab3e5920e7d7f613fd93bf8c8099ee3c252"
 dependencies = [
  "regex",
  "serde",
@@ -1761,9 +1761,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-parser"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80033bb7c172147790105072e6b35a270566c5cbb1ddbe80c3b09cd16693893d"
+checksum = "afc67cc30d58817c130484f030f99b49806209b379dcc49aac55a2fe5ea852f9"
 dependencies = [
  "regex",
  "rexlang-ast",
@@ -1774,9 +1774,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-proc-macro"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91e24c7cf164171c146c3c10a6605b99628c157a3630ac130b4bd22de95c8ec6"
+checksum = "16ed9f8ef68cb28de0b1ecd33e84ebdea7f5cce6301935f361dbf56f34641b2e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1785,9 +1785,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-typesystem"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "952c2922139deaa8d913c589407309813f59336dcc7e19e75bc33d6890093236"
+checksum = "881086d80e0d8e402a5a19e88ee7fbf9b75d2e47f9c88a84b1b11b7c067f0d81"
 dependencies = [
  "chrono",
  "rexlang-ast",
@@ -1801,9 +1801,9 @@ dependencies = [
 
 [[package]]
 name = "rexlang-util"
-version = "3.9.6"
+version = "3.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac2f149d67060320ff981d1564a0f27f3474f352b6c49dcfe8b1fffc18a489de"
+checksum = "d1c5af6ab52943caf842edd4c3d286806f5d2797cbbf1ea944b746678890b873"
 dependencies = [
  "thiserror 1.0.69",
 ]

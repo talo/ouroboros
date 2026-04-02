@@ -6,4 +6,4 @@ edition = "2024"
 [dependencies]
 ouroboros = { path = "../ouroboros", default-features = false }
 ouroboros-proc-macro = { path = "../ouroboros-proc-macro" }
-rexlang = { version = "3.9.7" }
+rexlang = { version = "3.9.8" }
