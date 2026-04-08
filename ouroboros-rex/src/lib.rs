@@ -13,13 +13,13 @@ use ouroboros::generic::Generic;
 use ouroboros::product::{Array, Func, Tuple};
 use ouroboros::sum::{Fallible, Optional};
 use ouroboros::type_info::Type as OuroborosType;
-use rexlang::{JsonOptions, RexType, TypeKind, TypeSystem, sym};
+use rexlang::{JsonOptions, RexType, TypeKind, TypeVarSupply, sym};
 
 // Note: We cannot use From/Into here as these only work if the types
 // they are implemented on are defined in the same crate
 
 pub fn ouroboros_to_rex(
-    ts: &mut TypeSystem,
+    supply: &mut TypeVarSupply,
     our_type: &OuroborosType,
     opts: &JsonOptions,
 ) -> Result<rexlang::Type, String> {
@@ -39,48 +39,50 @@ pub fn ouroboros_to_rex(
         OuroborosType::F32 => Ok(f32::rex_type()),
         OuroborosType::F64 => Ok(f64::rex_type()),
         OuroborosType::String => Ok(String::rex_type()),
-        OuroborosType::Array(a) => Ok(rexlang::Type::array(ouroboros_to_rex(ts, &a.t, opts)?)),
+        OuroborosType::Array(a) => Ok(rexlang::Type::array(ouroboros_to_rex(supply, &a.t, opts)?)),
         OuroborosType::Record(r) => Ok(rexlang::Type::con(&r.n, 0)),
-        OuroborosType::Tuple(tuple) => unnamed_fields_to_rex(ts, &tuple.fields, opts),
+        OuroborosType::Tuple(tuple) => unnamed_fields_to_rex(supply, &tuple.fields, opts),
         OuroborosType::Func(func) => Ok(rexlang::Type::fun(
-            ouroboros_to_rex(ts, &func.a, opts)?,
-            ouroboros_to_rex(ts, &func.b, opts)?,
+            ouroboros_to_rex(supply, &func.a, opts)?,
+            ouroboros_to_rex(supply, &func.b, opts)?,
         )),
         OuroborosType::Enum(e) => Ok(rexlang::Type::con(&e.n, 0)),
         OuroborosType::Fallible(f) => Ok(rexlang::Type::result(
-            ouroboros_to_rex(ts, &f.err, opts)?,
-            ouroboros_to_rex(ts, &f.ok, opts)?,
+            ouroboros_to_rex(supply, &f.err, opts)?,
+            ouroboros_to_rex(supply, &f.ok, opts)?,
         )),
-        OuroborosType::Optional(o) => Ok(rexlang::Type::option(ouroboros_to_rex(ts, &o.t, opts)?)),
+        OuroborosType::Optional(o) => {
+            Ok(rexlang::Type::option(ouroboros_to_rex(supply, &o.t, opts)?))
+        }
         OuroborosType::Union(u) => Ok(rexlang::Type::con(&u.n, 0)),
         OuroborosType::Ptr(_) => Ok(rexlang::Type::con("Ptr", 0)),
         OuroborosType::Symbolic(symbolic) => Ok(rexlang::Type::con(&symbolic.n, 0)),
-        OuroborosType::Generic(g) => Ok(rexlang::Type::var(ts.supply.fresh(Some(sym(&g.n))))),
-        OuroborosType::Alias(alias) => ouroboros_to_rex(ts, &alias.t, opts),
+        OuroborosType::Generic(g) => Ok(rexlang::Type::var(supply.fresh(Some(sym(&g.n))))),
+        OuroborosType::Alias(alias) => ouroboros_to_rex(supply, &alias.t, opts),
     }
 }
 
 #[cfg(test)]
 fn named_fields_to_rex(
-    ts: &mut TypeSystem,
+    supply: &mut TypeVarSupply,
     fields: &NamedFields,
     opts: &JsonOptions,
 ) -> Result<rexlang::Type, String> {
     let mut entries = Vec::new();
     for field in fields.fields.iter() {
-        entries.push((sym(&field.n), ouroboros_to_rex(ts, &field.t, opts)?));
+        entries.push((sym(&field.n), ouroboros_to_rex(supply, &field.t, opts)?));
     }
     Ok(rexlang::Type::record(entries))
 }
 
 fn unnamed_fields_to_rex(
-    ts: &mut TypeSystem,
+    supply: &mut TypeVarSupply,
     fields: &UnnamedFields,
     opts: &JsonOptions,
 ) -> Result<rexlang::Type, String> {
     let mut rex_types: Vec<rexlang::Type> = Vec::new();
     for field in fields.iter() {
-        rex_types.push(ouroboros_to_rex(ts, &field.t, opts)?);
+        rex_types.push(ouroboros_to_rex(supply, &field.t, opts)?);
     }
     Ok(rexlang::Type::tuple(rex_types))
 }
@@ -193,10 +195,10 @@ pub mod test {
 
     fn ouroboros_adt_to_rex_decl(
         engine: &mut Engine<()>,
-        ts: &mut TypeSystem,
+        supply: &mut TypeVarSupply,
         our_type: &OuroborosType,
     ) -> Result<rexlang::AdtDecl, String> {
-        let rex_type = ouroboros_to_rex(ts, our_type, &Default::default())?;
+        let rex_type = ouroboros_to_rex(supply, our_type, &Default::default())?;
         let mut adt = engine
             .adt_decl_from_type(&rex_type)
             .map_err(|e| e.to_string())?;
@@ -212,10 +214,10 @@ pub mod test {
                         None => vec![],
                         Some(Fields::Unnamed(fields)) => fields
                             .iter()
-                            .map(|f| ouroboros_to_rex(ts, &f.t, &Default::default()))
+                            .map(|f| ouroboros_to_rex(supply, &f.t, &Default::default()))
                             .collect::<Result<Vec<_>, _>>()?,
                         Some(Fields::Named(fields)) => {
-                            let record = named_fields_to_rex(ts, fields, &Default::default())?;
+                            let record = named_fields_to_rex(supply, fields, &Default::default())?;
                             vec![record]
                         }
                     };
@@ -234,9 +236,9 @@ pub mod test {
 
     #[test]
     fn test_unit() {
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &OuroborosType::Unit, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &OuroborosType::Unit, &Default::default()).unwrap(),
             rexlang::Type::tuple(vec![])
         );
         assert_eq!(
@@ -254,9 +256,12 @@ pub mod test {
                 }],
             },
         });
-        let mut ts = TypeSystem::new();
-        let rex_type = ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap();
-        assert_eq!(rex_type, rexlang::Type::tuple(vec![rexlang::Type::con("u64", 0)]));
+        let mut supply = TypeVarSupply::new();
+        let rex_type = ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap();
+        assert_eq!(
+            rex_type,
+            rexlang::Type::tuple(vec![rexlang::Type::con("u64", 0)])
+        );
         assert_eq!(rex_to_ouroboros(&rex_type).unwrap(), our_type);
     }
 
@@ -274,11 +279,14 @@ pub mod test {
                 ],
             },
         });
-        let mut ts = TypeSystem::new();
-        let rex_type = ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap();
+        let mut supply = TypeVarSupply::new();
+        let rex_type = ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap();
         assert_eq!(
             rex_type,
-            rexlang::Type::tuple(vec![rexlang::Type::con("u64", 0), rexlang::Type::con("string", 0)])
+            rexlang::Type::tuple(vec![
+                rexlang::Type::con("u64", 0),
+                rexlang::Type::con("string", 0)
+            ])
         );
         assert_eq!(rex_to_ouroboros(&rex_type).unwrap(), our_type);
     }
@@ -293,9 +301,9 @@ pub mod test {
             b: String,
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -309,9 +317,9 @@ pub mod test {
         #[derive(Rex, TypeInfo)]
         pub struct Foo(pub u64, pub String);
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -328,9 +336,9 @@ pub mod test {
             Two,
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -368,9 +376,9 @@ pub mod test {
         // Rex's ADTVariant doesn't keep track of the integer values associated with enum
         // variants. So when we convert back to the ouroboros type, we'll get the same result
         // as derive(TypeInfo) would produce if there were no integer values in the enum.
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &int::Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &int::Foo::t(), &Default::default()).unwrap(),
             int::Foo::rex_type()
         );
         assert_err_contains(
@@ -387,9 +395,9 @@ pub mod test {
             Two(String),
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -406,9 +414,9 @@ pub mod test {
             Two(String, f64),
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -426,9 +434,9 @@ pub mod test {
             Three(String, f64),
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -445,9 +453,9 @@ pub mod test {
             Two { a: f64, b: bool },
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -497,17 +505,17 @@ pub mod test {
             }
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_err_contains(
             rex_to_ouroboros(
-                &ouroboros_to_rex(&mut ts, &different_sizes::Foo::t(), &Default::default())
+                &ouroboros_to_rex(&mut supply, &different_sizes::Foo::t(), &Default::default())
                     .unwrap(),
             ),
             "Ambiguous Rex type constructor: Foo",
         );
 
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &different_sizes::Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &different_sizes::Foo::t(), &Default::default()).unwrap(),
             different_sizes::Foo::rex_type()
         );
     }
@@ -519,9 +527,9 @@ pub mod test {
             t: Box::new(OuroborosType::U64),
         });
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap(),
             rexlang::Type::con("u64", 0)
         );
     }
@@ -540,9 +548,9 @@ pub mod test {
         });
         let rex_type = Foo::rex_type();
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap(),
             rex_type
         );
         assert_err_contains(
@@ -564,9 +572,9 @@ pub mod test {
         });
         let rex_type = Foo::rex_type();
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap(),
             rex_type
         );
         assert_err_contains(
@@ -586,9 +594,9 @@ pub mod test {
             t: Box::new(OuroborosType::String),
         });
         let rex_type = Ptr::rex_type();
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap(),
             rex_type
         );
         assert_err_contains(
@@ -603,11 +611,14 @@ pub mod test {
             a: Box::new(OuroborosType::U64),
             b: Box::new(OuroborosType::String),
         });
-        let rex_type = rexlang::Type::fun(rexlang::Type::con("u64", 0), rexlang::Type::con("string", 0));
+        let rex_type = rexlang::Type::fun(
+            rexlang::Type::con("u64", 0),
+            rexlang::Type::con("string", 0),
+        );
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &our_type, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &our_type, &Default::default()).unwrap(),
             rex_type
         );
         assert_eq!(rex_to_ouroboros(&rex_type).unwrap(), our_type);
@@ -620,9 +631,9 @@ pub mod test {
             pub a: Result<u64, String>,
         }
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &Foo::t(), &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &Foo::t(), &Default::default()).unwrap(),
             Foo::rex_type()
         );
         assert_err_contains(
@@ -633,13 +644,13 @@ pub mod test {
 
     #[test]
     fn test_generic() {
-        let mut ts = TypeSystem::new();
-        let tv = ts.supply.fresh(Some(sym("T")));
+        let mut supply = TypeVarSupply::new();
+        let tv = supply.fresh(Some(sym("T")));
         let our_generic = OuroborosType::Generic(Generic::new("T"));
         let rex_generic = rexlang::Type::var(tv.clone());
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         assert_eq!(
-            ouroboros_to_rex(&mut ts, &our_generic, &Default::default()).unwrap(),
+            ouroboros_to_rex(&mut supply, &our_generic, &Default::default()).unwrap(),
             rex_generic
         );
         assert_eq!(rex_to_ouroboros(&rex_generic).unwrap(), our_generic);
@@ -655,10 +666,12 @@ pub mod test {
             ],
         ));
 
-        let mut ts = TypeSystem::new();
+        let mut supply = TypeVarSupply::new();
         let mut engine = Engine::with_prelude(()).unwrap();
-        let adt = ouroboros_adt_to_rex_decl(&mut engine, &mut ts, &our_type).unwrap();
-        engine.inject_adt(adt).unwrap();
+        let adt = ouroboros_adt_to_rex_decl(&mut engine, &mut supply, &our_type).unwrap();
+        let mut library = rexlang::Library::global();
+        library.add_adt_decl(adt).unwrap();
+        engine.inject_library(library).unwrap();
 
         let mut gas = GasMeter::default();
         let (_, ty_ctor) = engine.infer_snippet(r#"Done "ok""#, &mut gas).unwrap();
