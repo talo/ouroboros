@@ -10,7 +10,7 @@ ouroboros = { path = "../ouroboros" }
 ouroboros-wasm = { path = "../ouroboros-wasm" }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }
-wasmtime = { version = "15.0.1", features = ["async"] }
+wasmtime = { version = "24.0.7", features = ["async"] }
 tokio = { version = "1.35", features = ["macros", "rt", "sync"] }
 tracing = { version = "0.1.37" }
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
